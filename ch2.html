@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 時代的數位創作者 — 互動教學</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════
+   CSS 變數（全站顏色主題）
+   ══════════════════════════════════════ */
+:root {
+  --navy:#1E3A5F; --teal:#0D9488; --sage:#6B8F8F;
+  --purple:#6B3FA0; --gold:#F59E0B; --light:#F1F5F9; --white:#fff;
+  --text:#111827; --muted:#374151;
+  --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Noto Sans TC',sans-serif;background:#0f172a;color:var(--text);overflow:hidden;height:100vh}
+
+/* ═══ 進度條 ═══ */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));transition:width .4s;z-index:200}
+
+/* ═══ 頂部導覽 ═══ */
+#topbar{position:fixed;top:3px;left:0;right:0;height:48px;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+#topbar .tb-title{color:#fff;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .tb-counter{color:var(--gold);font-size:.8rem;white-space:nowrap}
+#btn-toc{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:.75rem;cursor:pointer}
+#btn-toc:hover{background:rgba(255,255,255,.1)}
+
+/* ═══ 投影片容器 ═══ */
+#slide-wrap{position:fixed;top:51px;left:280px;right:0;bottom:64px;overflow:hidden;transition:left .3s}
+#slide-wrap.toc-hidden{left:0}
+#slide-frame{width:100%;height:100%;padding:20px 24px;overflow-y:auto;transition:opacity .2s}
+
+/* ═══ 投影片背景 ═══ */
+.bg-navy{background:linear-gradient(135deg,#1E3A5F 0%,#0f2340 100%)}
+.bg-teal{background:linear-gradient(135deg,#0D9488 0%,#065f46 100%)}
+.bg-sage{background:linear-gradient(135deg,#6B8F8F 0%,#4a6b6b 100%)}
+.bg-purple{background:linear-gradient(135deg,#6B3FA0 0%,#3b1f6b 100%)}
+.bg-white{background:#f8fafc}
+
+/* ═══ 底部導覽按鈕 ═══ */
+#nav-bar{position:fixed;bottom:0;left:280px;right:0;height:64px;background:rgba(15,23,42,.95);display:flex;align-items:center;justify-content:center;gap:16px;transition:left .3s;z-index:100}
+#nav-bar.toc-hidden{left:0}
+.nav-btn{background:var(--purple);color:#fff;border:none;padding:10px 28px;border-radius:24px;font-size:.9rem;cursor:pointer;font-weight:600;transition:all .2s}
+.nav-btn:hover{background:#5a3290;transform:translateY(-1px)}
+.nav-btn:disabled{background:#334155;cursor:not-allowed;transform:none}
+#slide-dots{display:flex;gap:6px;align-items:center;max-width:300px;flex-wrap:wrap;justify-content:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#334155;cursor:pointer;transition:all .2s}
+.dot.active{background:var(--gold);transform:scale(1.3)}
+.dot.done{background:var(--teal)}
+
+/* ═══ TOC 側邊欄 ═══ */
+#toc{position:fixed;top:51px;left:0;width:280px;bottom:0;background:#0f172a;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;z-index:50;transition:transform .3s}
+#toc.hidden{transform:translateX(-100%)}
+#toc h3{padding:14px 16px 10px;color:var(--gold);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,.06)}
+.toc-item{padding:7px 16px;font-size:.78rem;color:#cbd5e1;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc-item:hover{color:#fff;background:rgba(255,255,255,.05)}
+.toc-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(245,158,11,.08)}
+.toc-item.done{color:var(--teal)}
+.toc-chapter{padding:8px 16px 4px;font-size:.7rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ═══ 封面樣式 ═══ */
+.cover-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 130px);text-align:center;padding:20px}
+.cover-badge{background:rgba(107,63,160,.3);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:.8rem;letter-spacing:.08em;margin-bottom:20px;border:1px solid rgba(107,63,160,.4)}
+.cover-title{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
+.cover-sub{font-size:clamp(.9rem,1.5vw,1.1rem);color:#94a3b8;margin-bottom:24px;max-width:500px}
+.cover-tags{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px}
+.tag{background:rgba(255,255,255,.1);color:#cbd5e1;padding:5px 14px;border-radius:14px;font-size:.78rem;border:1px solid rgba(255,255,255,.15)}
+.cover-meta{font-size:.75rem;color:#475569}
+
+/* ═══ 投影片通用 ═══ */
+.slide-inner{padding:8px 4px}
+.slide-title{font-size:clamp(1.1rem,2.2vw,1.5rem);font-weight:700;margin-bottom:12px;color:var(--text)}
+.slide-desc{font-size:.88rem;color:var(--muted);margin-bottom:14px}
+.slide-note{font-size:.82rem;color:var(--muted);margin-top:12px;padding:8px 12px;background:rgba(0,0,0,.05);border-radius:8px}
+.tip-box{background:linear-gradient(135deg,rgba(107,63,160,.1),rgba(30,58,95,.1));border:1px solid rgba(107,63,160,.25);border-radius:10px;padding:12px 16px;font-size:.83rem;color:var(--text);margin-top:12px;line-height:1.6}
+
+/* ═══ 卡片格 ═══ */
+.card-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.card-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.info-card{background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.15)}
+.card-icon{font-size:1.6rem;margin-bottom:6px}
+.card-label{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:4px}
+.card-desc{font-size:.72rem;color:rgba(255,255,255,.92);line-height:1.4}
+
+/* ═══ 位元視覺 ═══ */
+.bit-demo{background:rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.bit-box{padding:8px 16px;border-radius:10px;font-weight:700;font-size:.9rem;text-align:center}
+.bit-off{background:rgba(239,68,68,.25);border:2px solid rgba(239,68,68,.5);color:#fca5a5}
+.bit-on{background:rgba(34,197,94,.25);border:2px solid rgba(34,197,94,.5);color:#86efac}
+
+/* ═══ 平台表格 ═══ */
+.platform-table{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:10px}
+.pt-header{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;background:var(--navy);color:#fff;padding:8px 12px;font-size:.75rem;font-weight:600;gap:8px}
+.pt-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;padding:8px 12px;font-size:.78rem;gap:8px;border-top:1px solid #f1f5f9;align-items:center}
+.pt-row:nth-child(even){background:#f8fafc}
+.pt-name{font-weight:600;color:var(--navy)}
+
+/* ═══ 四層架構 ═══ */
+.layer-stack{display:flex;flex-direction:column;gap:2px;margin:8px 0}
+.layer{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15)}
+.layer-hw{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.6);border-width:2px}
+.layer-os{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.6);border-width:2px}
+.layer-app{background:rgba(13,148,136,.12);border-color:rgba(13,148,136,.6);border-width:2px}
+.layer-user{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.6);border-width:2px}
+.layer-num{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.18);color:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.layer-name{font-weight:700;font-size:.88rem;color:#1e293b;margin-bottom:2px}
+.layer-detail{font-size:.75rem;color:#475569}
+.layer-arrow{text-align:center;color:#64748b;font-size:.9rem;margin:-4px 0}
+
+/* ═══ 儲存單位 ═══ */
+.units-grid{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.unit-row{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0}
+.unit-small{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
+.unit-large{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+.unit-name{font-size:.82rem;font-weight:700;color:#1e293b;min-width:150px}
+.unit-eq{font-size:.78rem;color:#475569}
+
+/* ═══ 資料表格 ═══ */
+.info-table{width:100%;border-collapse:collapse;font-size:.8rem;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+.info-table th,.info-table td{padding:8px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+.table-header{background:var(--navy);color:#fff}
+.table-header th{color:#fff;font-weight:600;font-size:.78rem;padding:9px 12px}
+.tr-highlight{background:rgba(13,148,136,.08)}
+.info-table tr:last-child td{border-bottom:none}
+.td-center{text-align:center}
+
+/* ═══ 功能卡片 ═══ */
+.func-card{display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0}
+.fc-num{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.fc-title{font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:3px}
+.fc-desc{font-size:.75rem;color:var(--muted);line-height:1.4}
+
+/* ═══ Fact Box ═══ */
+.fact-box{background:rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px}
+.fact-box p{font-size:.8rem;color:rgba(255,255,255,.95);margin-bottom:6px;line-height:1.5}
+
+/* ═══ 圖表 ═══ */
+.chart-wrap-full{width:100%;margin-bottom:10px}
+
+/* ═══ 作業 ═══ */
+.task-single{background:rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;border:1px solid rgba(255,255,255,.15);margin-bottom:14px}
+.task-title{font-size:.82rem;font-weight:700;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.task-item{font-size:.78rem;color:rgba(255,255,255,.8);margin-bottom:7px;padding-left:4px;line-height:1.4}
+.submit-box{display:flex;align-items:center;gap:14px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.4);border-radius:12px;padding:14px 16px}
+.submit-icon{font-size:2rem;flex-shrink:0}
+.submit-title{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:4px}
+.submit-desc{font-size:.78rem;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ═══ 影片區塊 ═══ */
+.video-section{margin:10px 0}
+.video-embed{border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9;width:100%;max-width:560px;margin:0 auto}
+.video-embed iframe{width:100%;height:100%;border:none;display:block}
+.video-search-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:600;transition:all .2s;width:fit-content;margin:0 auto}
+.video-search-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(220,38,38,.4)}
+.video-search-btn .yt-icon{font-size:1.2rem}
+
+/* ═══ 測驗 Modal ═══ */
+#quiz-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+#quiz-overlay.show{display:flex}
+#quiz-box{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#quiz-header{background:var(--purple);color:#fff;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
+#quiz-header h3{font-size:.95rem;font-weight:700}
+#quiz-header .qh-score{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:12px;font-size:.78rem}
+#quiz-body{padding:16px 20px;overflow-y:auto;flex:1}
+.quiz-q{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f1f5f9}
+.quiz-q:last-child{border-bottom:none}
+.q-text{font-size:.9rem;font-weight:600;color:var(--navy);margin-bottom:10px;line-height:1.4}
+.q-options{display:flex;flex-direction:column;gap:7px}
+.q-opt{padding:9px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:.82rem;transition:all .15s;line-height:1.3}
+.q-opt:hover{border-color:var(--purple);background:#faf5ff}
+.q-opt.selected{border-color:var(--navy);background:rgba(30,58,95,.05)}
+.q-opt.correct{border-color:#10b981;background:#f0fdf4;color:#065f46}
+.q-opt.wrong{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.q-exp{font-size:.78rem;color:#374151;background:#f8fafc;padding:8px 12px;border-radius:8px;margin-top:8px;border-left:3px solid var(--purple);line-height:1.5}
+#quiz-footer{padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;border-radius:0 0 16px 16px}
+#quiz-footer .qf-score{font-size:.88rem;font-weight:600;color:var(--navy)}
+#btn-submit-quiz,#btn-close-quiz{padding:8px 20px;border-radius:10px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s}
+#btn-submit-quiz{background:var(--navy);color:#fff}
+#btn-submit-quiz:hover{background:#0f2340}
+#btn-close-quiz{background:var(--purple);color:#fff;display:none}
+#btn-close-quiz:hover{background:#5a3290}
+</style>
+<script>window.__SLIDES__=[{"id": 1, "chapter": "封面", "title": "物聯網 IoT 與 AIoT", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:24px 20px;'>\n  <div style='font-size:66px;margin-bottom:14px;'>📡<\/div>\n  <h1 style='font-size:2.6rem;font-weight:900;color:#fff;margin-bottom:10px;'>物聯網 IoT 與 AIoT<\/h1>\n  <h2 style='font-size:1.25rem;font-weight:400;color:#93c5fd;margin-bottom:24px;'>Internet of Things &amp; AIoT<\/h2>\n  <div style='display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:22px;'>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>📶 感測與連線<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🏷️ RFID<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🏙️ 智慧城市<\/span>\n  <\/div>\n  <p style='color:#bfdbfe;font-size:1.05rem;'>七年級第一學期 ｜ 第 2 週<\/p>\n<\/div>"}, {"id": 2, "chapter": "第一節：什麼是物聯網", "title": "物聯網是什麼？", "bg": "white", "quiz": null, "chart": null, "video": {"query": "物聯網 IoT 是什麼 中文 介紹", "title": "延伸影片：物聯網是什麼？", "desc": "在 YouTube 搜尋「物聯網 IoT 介紹」，挑一支 3–5 分鐘的中文短片"}, "html": "\n<h2 class='slide-title'>物聯網是什麼？把日常物品連上網路<\/h2>\n<div style='background:#f1f5f9;border-radius:10px;padding:12px 16px;margin-bottom:14px;border-left:4px solid #0d9488;'>\n  <p style='margin:0;color:#0f172a;font-size:.93rem;'>📖 把任何裝置、交通工具、建築物<strong>連上網際網路<\/strong>，讓它們藉由<strong>感測器互相交換資料、自動完成任務<\/strong>。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:14px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.8rem;'>📡<\/div><strong style='color:#1e40af;font-size:.88rem;'>感測 Sense<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.6;'>感測器蒐集溫度、光線、位置等環境資料<\/p><\/div>\n  <div style='background:#f0fdf4;padding:14px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.8rem;'>💬<\/div><strong style='color:#166534;font-size:.88rem;'>溝通 Connect<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.6;'>裝置之間透過網路自動傳送訊息<\/p><\/div>\n  <div style='background:#fefce8;padding:14px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.8rem;'>🎮<\/div><strong style='color:#854d0e;font-size:.88rem;'>控制 Control<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.6;'>從任何地方遠端操控設備<\/p><\/div>\n  <div style='background:#f5f3ff;padding:14px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.8rem;'>📊<\/div><strong style='color:#5b21b6;font-size:.88rem;'>學習 Learn<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.6;'>分析行為模式，提供個人化服務<\/p><\/div>\n<\/div>\n<div style='background:#eff6ff;padding:11px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.9rem;margin:0;'>💬 <strong>一句話記住<\/strong>：以前是「人上網」，現在是「<strong>物也上網<\/strong>」。你的悠遊卡、電子看板、超商冰箱，都在默默傳資料。<\/p>\n<\/div>\n<div id='video-section-2' class='video-section'><\/div>"}, {"id": 3, "chapter": "第一節：什麼是物聯網", "title": "IoT 的三層架構", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>IoT 怎麼運作？三層架構一次看懂<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <div style='display:flex;flex-direction:column;gap:10px;'>\n    <div style='background:rgba(59,130,246,.2);border-left:4px solid #3b82f6;border-radius:8px;padding:12px 16px;'>\n      <strong style='color:#93c5fd;font-size:.92rem;'>① 感知層（Perception）— 裝置的「五官」<\/strong>\n      <p style='color:#cbd5e1;font-size:.8rem;margin-top:4px;'>溫濕度感測器、攝影機、GPS、RFID 標籤、麥克風 → 把真實世界變成數字<\/p>\n    <\/div>\n    <div style='text-align:center;color:#64748b;font-size:1.1rem;'>&#8595;<\/div>\n    <div style='background:rgba(13,148,136,.2);border-left:4px solid #0d9488;border-radius:8px;padding:12px 16px;'>\n      <strong style='color:#5eead4;font-size:.92rem;'>② 網路層（Network）— 資料的「高速公路」<\/strong>\n      <p style='color:#cbd5e1;font-size:.8rem;margin-top:4px;'>Wi-Fi、藍牙、4G／5G、LoRa → 把資料送到雲端伺服器<\/p>\n    <\/div>\n    <div style='text-align:center;color:#64748b;font-size:1.1rem;'>&#8595;<\/div>\n    <div style='background:rgba(168,85,247,.2);border-left:4px solid #a855f7;border-radius:8px;padding:12px 16px;'>\n      <strong style='color:#d8b4fe;font-size:.92rem;'>③ 應用層（Application）— 你看得到的「服務」<\/strong>\n      <p style='color:#cbd5e1;font-size:.8rem;margin-top:4px;'>手機 App、儀表板、自動控制指令 → 智慧家庭、公車動態、健康報告<\/p>\n    <\/div>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🚌 <strong>用公車動態站牌驗證<\/strong>：公車上的 GPS（感知層）→ 4G 回傳位置（網路層）→ 站牌與 App 顯示「還有 3 分鐘」（應用層）。<\/p>\n<\/div>"}, {"id": 4, "chapter": "第一節：什麼是物聯網", "title": "IoT 應用無所不在", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>IoT 應用無所不在<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:13px;border-radius:10px;'>\n    <div style='font-size:1.5rem;'>🏠<\/div><strong style='color:#1e40af;font-size:.88rem;'>智慧家庭<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>語音控制電器、自動空調、智慧冰箱、遠端監控<\/p><\/div>\n  <div style='background:#f0fdf4;padding:13px;border-radius:10px;'>\n    <div style='font-size:1.5rem;'>🏥<\/div><strong style='color:#166534;font-size:.88rem;'>智慧醫療<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>穿戴裝置監測心率、遠距問診、跌倒偵測<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;'>\n    <div style='font-size:1.5rem;'>🌾<\/div><strong style='color:#854d0e;font-size:.88rem;'>智慧農業<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>土壤濕度感測、自動灌溉、無人機巡田<\/p><\/div>\n  <div style='background:#f5f3ff;padding:13px;border-radius:10px;'>\n    <div style='font-size:1.5rem;'>🚦<\/div><strong style='color:#5b21b6;font-size:.88rem;'>智慧交通<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>公車動態、YouBike 車柱、即時路況、智慧停車<\/p><\/div>\n  <div style='background:#ecfeff;padding:13px;border-radius:10px;'>\n    <div style='font-size:1.5rem;'>🏭<\/div><strong style='color:#155e75;font-size:.88rem;'>工業物聯網<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>機台預測性維護、生產線監控、良率分析<\/p><\/div>\n  <div style='background:#fef2f2;padding:13px;border-radius:10px;'>\n    <div style='font-size:1.5rem;'>🌪️<\/div><strong style='color:#991b1b;font-size:.88rem;'>防災監測<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>河川水位、雨量站、地震速報、空品測站<\/p><\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;'>🇹🇼 <strong>台灣在地案例<\/strong>：<strong>YouBike<\/strong> 每個車柱都會回報有沒有車，App 才能顯示「剩 3 台」；<strong>環境部空氣品質監測網<\/strong>把全台測站資料即時公開，你查得到現在的 PM2.5。這兩個都是你天天在用的 IoT。<\/p>\n<\/div>"}, {"id": 5, "chapter": "第一節：什麼是物聯網", "title": "智慧家庭", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🏠 智慧家庭 — 家裡的每個角落都在思考<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#fff7ed;padding:13px;border-radius:10px;border-left:4px solid #f97316;'>\n    <strong style='color:#9a3412;font-size:.87rem;'>🍚 智慧電子鍋<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>依你設定的口感煮飯，回家前先煮好<\/p><\/div>\n  <div style='background:#eff6ff;padding:13px;border-radius:10px;border-left:4px solid #3b82f6;'>\n    <strong style='color:#1e40af;font-size:.87rem;'>❄️ 智慧空調<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>連結天氣預報，進門前先調好溫度<\/p><\/div>\n  <div style='background:#f0fdf4;padding:13px;border-radius:10px;border-left:4px solid #16a34a;'>\n    <strong style='color:#166534;font-size:.87rem;'>🧊 智慧冰箱<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>監控食物狀態、提醒過期、建議菜單<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;border-left:4px solid #eab308;'>\n    <strong style='color:#854d0e;font-size:.87rem;'>🔌 智慧插座<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>遠端關掉忘記拔的電器、記錄用電<\/p><\/div>\n  <div style='background:#f5f3ff;padding:13px;border-radius:10px;border-left:4px solid #a855f7;'>\n    <strong style='color:#5b21b6;font-size:.87rem;'>💨 智慧空氣清淨機<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>偵測 PM2.5 與油煙，自動加強運轉<\/p><\/div>\n  <div style='background:#ecfeff;padding:13px;border-radius:10px;border-left:4px solid #06b6d4;'>\n    <strong style='color:#155e75;font-size:.87rem;'>📺 聲控電視<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>找不到遙控器？直接說話換台<\/p><\/div>\n<\/div>\n<div style='background:#eff6ff;padding:11px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;'>💬 <strong>討論<\/strong>：如果你家有一個電器可以升級成「智慧」版，你會選哪一個？它要解決你什麼困擾？（想不到困擾＝可能不需要升級，這也是個好答案）<\/p>\n<\/div>"}, {"id": 6, "chapter": "第一節：什麼是物聯網", "title": "第一節 隨堂測驗", "bg": "purple", "quiz": "q1", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第一節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>物聯網的定義與運作 ｜ 3 題<\/p>\n<\/div>"}, {"id": 7, "chapter": "第二節：RFID 與感測器", "title": "RFID 射頻識別", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🏷️ RFID — 不用碰就能讀取<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#94a3b8;font-size:.82rem;margin-bottom:12px;'>Radio Frequency Identification（射頻識別）— 用無線電波隔空讀取資料<\/p>\n  <div style='display:flex;align-items:center;justify-content:space-between;gap:8px;'>\n    <div style='background:rgba(59,130,246,.2);border-radius:10px;padding:12px;flex:1;text-align:center;'>\n      <div style='font-size:1.6rem;'>🏷️<\/div>\n      <strong style='color:#93c5fd;font-size:.85rem;'>① 標籤 Tag<\/strong>\n      <p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>貼在物品上，儲存識別碼<\/p><\/div>\n    <div style='color:#f59e0b;font-size:1.3rem;'>&#8644;<\/div>\n    <div style='background:rgba(245,158,11,.2);border-radius:10px;padding:12px;flex:1;text-align:center;'>\n      <div style='font-size:1.6rem;'>📶<\/div>\n      <strong style='color:#fbbf24;font-size:.85rem;'>② 無線電波<\/strong>\n      <p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>不需接觸、不需對準<\/p><\/div>\n    <div style='color:#f59e0b;font-size:1.3rem;'>&#8644;<\/div>\n    <div style='background:rgba(13,148,136,.2);border-radius:10px;padding:12px;flex:1;text-align:center;'>\n      <div style='font-size:1.6rem;'>📟<\/div>\n      <strong style='color:#5eead4;font-size:.85rem;'>③ 讀取器 Reader<\/strong>\n      <p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>接收、解讀並上傳系統<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:11px;border-radius:9px;text-align:center;'><div style='font-size:1.4rem;'>🚇<\/div><p style='font-size:.74rem;color:#334155;margin-top:3px;'>悠遊卡<br>門禁卡<\/p><\/div>\n  <div style='background:#f0fdf4;padding:11px;border-radius:9px;text-align:center;'><div style='font-size:1.4rem;'>🚗<\/div><p style='font-size:.74rem;color:#334155;margin-top:3px;'>ETC<br>車輛識別<\/p><\/div>\n  <div style='background:#fefce8;padding:11px;border-radius:9px;text-align:center;'><div style='font-size:1.4rem;'>✈️<\/div><p style='font-size:.74rem;color:#334155;margin-top:3px;'>行李<br>追蹤<\/p><\/div>\n  <div style='background:#f5f3ff;padding:11px;border-radius:9px;text-align:center;'><div style='font-size:1.4rem;'>📚<\/div><p style='font-size:.74rem;color:#334155;margin-top:3px;'>圖書館<br>借還書<\/p><\/div>\n  <div style='background:#fef2f2;padding:11px;border-radius:9px;text-align:center;'><div style='font-size:1.4rem;'>📦<\/div><p style='font-size:.74rem;color:#334155;margin-top:3px;'>倉儲<br>盤點<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🎫 <strong>算算看<\/strong>：你今天用了幾次 RFID？（進校門、搭公車、超商買東西、圖書館借書…）多數人一天至少 5 次卻完全沒感覺——這就是好的科技。<\/p>\n<\/div>"}, {"id": 8, "chapter": "第二節：RFID 與感測器", "title": "常見感測器", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔬 常見感測器 — IoT 的五官<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:22%;'>感測器<\/th>\n    <th style='padding:7px;text-align:left;width:30%;'>測什麼<\/th>\n    <th style='padding:7px;text-align:left;'>你身邊的例子<\/th><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'>🌡️ 溫濕度感測器<\/td><td style='padding:7px;'>溫度、相對濕度<\/td><td style='padding:7px;'>冷氣、除濕機、氣象站、農業溫室<\/td><\/tr>\n  <tr><td style='padding:7px;'>💡 光感測器<\/td><td style='padding:7px;'>環境亮度<\/td><td style='padding:7px;'>手機自動調亮度、智慧路燈、自動窗簾<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'>📍 GPS 定位模組<\/td><td style='padding:7px;'>經緯度、移動速度<\/td><td style='padding:7px;'>導航、公車動態、運動手錶記錄路線<\/td><\/tr>\n  <tr><td style='padding:7px;'>🏃 加速度計／陀螺儀<\/td><td style='padding:7px;'>移動、傾斜、旋轉<\/td><td style='padding:7px;'>手機轉向、計步、跌倒偵測、遊戲控制<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'>👋 紅外線／超音波<\/td><td style='padding:7px;'>有沒有人、距離多遠<\/td><td style='padding:7px;'>自動門、自動水龍頭、掃地機器人避障<\/td><\/tr>\n  <tr><td style='padding:7px;'>🌫️ 空品感測器<\/td><td style='padding:7px;'>PM2.5、二氧化碳<\/td><td style='padding:7px;'>空氣清淨機、教室 CO₂ 監測、環境測站<\/td><\/tr>\n<\/table>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;'>📱 <strong>驚人事實<\/strong>：你口袋裡那支手機，就內建了上面表格中<strong>至少五種感測器<\/strong>。它其實是一台被你握在手裡的 IoT 裝置。<\/p>\n<\/div>"}, {"id": 9, "chapter": "第二節：RFID 與感測器", "title": "IoT 用了多少裝置", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📈 全世界有多少台裝置連著網路？<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;'>\n  <div style='background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-radius:12px;padding:18px;text-align:center;'>\n    <div style='font-size:2.1rem;font-weight:900;'>約 211 億<\/div>\n    <p style='font-size:.8rem;opacity:.9;margin-top:6px;'>2025 年底全球連網 IoT 裝置數<br>（IoT Analytics 估計）<\/p><\/div>\n  <div style='background:linear-gradient(135deg,#065f46,#0d9488);color:#fff;border-radius:12px;padding:18px;text-align:center;'>\n    <div style='font-size:2.1rem;font-weight:900;'>+14%<\/div>\n    <p style='font-size:.8rem;opacity:.9;margin-top:6px;'>2025 年較前一年的成長率<br>（2024 年約 185 億台）<\/p><\/div>\n  <div style='background:linear-gradient(135deg,#6b21a8,#a855f7);color:#fff;border-radius:12px;padding:18px;text-align:center;'>\n    <div style='font-size:2.1rem;font-weight:900;'>約 390 億<\/div>\n    <p style='font-size:.8rem;opacity:.9;margin-top:6px;'>2030 年預測值<br>（預測值會隨情勢調整）<\/p><\/div>\n<\/div>\n<div style='background:#f1f5f9;border-radius:10px;padding:13px 16px;margin-bottom:12px;'>\n  <p style='color:#334155;font-size:.87rem;margin:0;line-height:1.9;'>\n    🌍 全球人口約 80 億，也就是說<strong>平均每個人身邊有 2–3 台連網的「物」<\/strong>。而你自己可能就佔了好幾台：手機、手錶、耳機、電視、遊戲機……<\/p>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.87rem;margin:0;'>🔍 <strong>看數據要看來源<\/strong>：不同研究機構算出的數字會不一樣（有的把手機算進去、有的不算）。做報告時，<strong>一定要寫出「誰統計的、哪一年」<\/strong>——這是第 10–12 週專題的評分重點之一。<\/p>\n<\/div>"}, {"id": 10, "chapter": "第二節：RFID 與感測器", "title": "第二節 隨堂測驗", "bg": "purple", "quiz": "q2", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第二節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>RFID 與感測器 ｜ 3 題<\/p>\n<\/div>"}, {"id": 11, "chapter": "第三節：AIoT 與智慧城市", "title": "AI + IoT = AIoT", "bg": "white", "quiz": null, "chart": null, "video": {"query": "AIoT 人工智慧物聯網 是什麼 中文", "title": "延伸影片：什麼是 AIoT？", "desc": "在 YouTube 搜尋「AIoT 人工智慧物聯網」，看看業界怎麼應用"}, "html": "\n<h2 class='slide-title'>🤖 AI ＋ IoT ＝ AIoT：聰明的東西會自己做事<\/h2>\n<div style='display:flex;align-items:stretch;gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;flex:1;'>\n    <div style='background:#2563eb;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;margin-bottom:8px;'>1<\/div>\n    <strong style='color:#1e40af;font-size:.9rem;'>IoT 收集資料<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>感測器持續蒐集溫度、位置、使用行為<\/p><\/div>\n  <div style='display:flex;align-items:center;color:#94a3b8;font-size:1.4rem;'>&#8594;<\/div>\n  <div style='background:#f5f3ff;border-radius:12px;padding:15px;flex:1;'>\n    <div style='background:#7c3aed;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;margin-bottom:8px;'>2<\/div>\n    <strong style='color:#5b21b6;font-size:.9rem;'>AI 分析決策<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>從資料中找出規律，判斷「現在該做什麼」<\/p><\/div>\n  <div style='display:flex;align-items:center;color:#94a3b8;font-size:1.4rem;'>&#8594;<\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;flex:1;'>\n    <div style='background:#16a34a;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;margin-bottom:8px;'>3<\/div>\n    <strong style='color:#166534;font-size:.9rem;'>自動化行動<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>裝置自己執行，並持續學習修正<\/p><\/div>\n<\/div>\n<div style='background:#1e293b;border-radius:10px;padding:14px 18px;margin-bottom:12px;'>\n  <p style='color:#e2e8f0;font-size:.88rem;margin:0;line-height:1.9;'>\n    ⚖️ <strong style='color:#fbbf24;'>一句話分辨<\/strong>：<br>\n    只會「回報數字、等你按開關」→ <strong>IoT<\/strong>　｜　會「自己找規律、自己決定」→ <strong>AIoT<\/strong><\/p>\n<\/div>\n<div style='background:#eff6ff;padding:11px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🎬 <strong>真實例子<\/strong>：串流平台記錄你看了什麼、看到第幾分鐘跳過（IoT 式的資料收集），再用 AI 推薦下一部片。它不是「懂你」，它是「算出來的」。<\/p>\n<\/div>\n<div id='video-section-11' class='video-section'><\/div>"}, {"id": 12, "chapter": "第三節：AIoT 與智慧城市", "title": "智慧城市與 5G", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🏙️ 智慧城市與 5G — 城市怎麼變聰明<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;'>\n    <h3 style='color:#1e40af;font-size:1rem;margin-bottom:8px;'>📶 5G 帶來的兩個關鍵改變<\/h3>\n    <ul style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:18px;margin:0;'>\n      <li><strong>低延遲<\/strong>：指令送出到收到回應的時間大幅縮短，自駕車、遠距手術才可行<\/li>\n      <li><strong>高連線密度<\/strong>：同一個區域能同時容納更多裝置，一座城市數十萬個感測器才連得上<\/li>\n      <li><strong>高頻寬<\/strong>：即時傳送高畫質影像，AI 影像辨識才有材料可用<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;'>\n    <h3 style='color:#166534;font-size:1rem;margin-bottom:8px;'>🏗️ 城市裡的 AIoT 應用<\/h3>\n    <ul style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:18px;margin:0;'>\n      <li><strong>交通<\/strong>：分析車流自動調整號誌時相，降低壅塞<\/li>\n      <li><strong>節能<\/strong>：智慧路燈依人車流量調整亮度<\/li>\n      <li><strong>防災<\/strong>：水位／雨量測站即時預警，提早疏散<\/li>\n      <li><strong>環境<\/strong>：空品微型感測器找出污染熱點<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🇹🇼 <strong>台北在地<\/strong>：<strong>臺北市政府資料大平臺<\/strong>把公車動態、YouBike 站點、空氣品質、停車位資訊開放給大家使用——很多你在用的 App，資料其實都來自這裡。第 3 週我們就會實際打開它看看。<\/p>\n<\/div>"}, {"id": 13, "chapter": "第三節：AIoT 與智慧城市", "title": "校園裡的 IoT", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>🏫 找找看：我們學校裡的 IoT<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <div style='font-size:1.4rem;'>🚪<\/div><strong style='color:#fff;font-size:.86rem;'>門禁與刷卡機<\/strong>\n    <p style='color:#ccfbf1;font-size:.75rem;margin-top:5px;line-height:1.6;'>RFID 感應，紀錄進出時間<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <div style='font-size:1.4rem;'>🌡️<\/div><strong style='color:#fff;font-size:.86rem;'>教室冷氣管控<\/strong>\n    <p style='color:#ccfbf1;font-size:.75rem;margin-top:5px;line-height:1.6;'>集中控制、定時關機、用電統計<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <div style='font-size:1.4rem;'>📺<\/div><strong style='color:#fff;font-size:.86rem;'>電子公告看板<\/strong>\n    <p style='color:#ccfbf1;font-size:.75rem;margin-top:5px;line-height:1.6;'>從網路更新內容，不用重印海報<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <div style='font-size:1.4rem;'>💧<\/div><strong style='color:#fff;font-size:.86rem;'>飲水機濾心提示<\/strong>\n    <p style='color:#ccfbf1;font-size:.75rem;margin-top:5px;line-height:1.6;'>計算流量，提醒何時該換濾心<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <div style='font-size:1.4rem;'>📚<\/div><strong style='color:#fff;font-size:.86rem;'>圖書館借還書<\/strong>\n    <p style='color:#ccfbf1;font-size:.75rem;margin-top:5px;line-height:1.6;'>RFID 標籤，一次感應多本書<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <div style='font-size:1.4rem;'>🔦<\/div><strong style='color:#fff;font-size:.86rem;'>感應式照明／水龍頭<\/strong>\n    <p style='color:#ccfbf1;font-size:.75rem;margin-top:5px;line-height:1.6;'>紅外線偵測有人才啟動，省電省水<\/p><\/div>\n<\/div>\n<div style='background:rgba(0,0,0,.2);border-radius:8px;padding:12px 18px;'>\n  <p style='color:#f0fdfa;font-size:.89rem;margin:0;line-height:1.85;'>\n    🔎 <strong>下課走一圈<\/strong>：找出三個校園裡「有感測、有連線」的東西，拍照記錄。想想看——如果再幫學校加一個 IoT 裝置，你會加什麼？<\/p>\n<\/div>"}, {"id": 14, "chapter": "第三節：AIoT 與智慧城市", "title": "想像未來智慧生活", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>💡 想像未來智慧生活 — 三個範例點子<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:16px;border-top:5px solid #2563eb;'>\n    <div style='font-size:1.8rem;'>🎒<\/div>\n    <strong style='color:#1e40af;font-size:.95rem;'>智慧書包<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'><strong>感測<\/strong>：重量感測器＋RFID 標籤<br><strong>解決<\/strong>：對照課表，提醒今天課本有沒有帶齊、書包會不會太重<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:16px;border-top:5px solid #16a34a;'>\n    <div style='font-size:1.8rem;'>👟<\/div>\n    <strong style='color:#166534;font-size:.95rem;'>智慧鞋墊<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'><strong>感測<\/strong>：壓力感測器＋加速度計<br><strong>解決<\/strong>：記錄步數與走路姿勢，提醒運動量並預防運動傷害<\/p><\/div>\n  <div style='background:#fefce8;border-radius:12px;padding:16px;border-top:5px solid #eab308;'>\n    <div style='font-size:1.8rem;'>💡<\/div>\n    <strong style='color:#854d0e;font-size:.95rem;'>智慧桌燈<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'><strong>感測<\/strong>：光感測器＋距離感測器<br><strong>解決<\/strong>：自動調亮度與色溫，趴太近時提醒你坐正，保護視力<\/p><\/div>\n<\/div>\n<div style='background:#f5f3ff;padding:12px 16px;border-radius:8px;border-left:4px solid #7c3aed;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;line-height:1.85;'>✏️ <strong>換你想<\/strong>：好的 IoT 點子都長這樣 ——<br>\n  「<strong>誰<\/strong>遇到<strong>什麼困擾<\/strong> → 需要知道<strong>什麼資料<\/strong> → 用<strong>什麼感測器<\/strong>量 → 裝置<strong>自動做什麼<\/strong>」。等一下的分組實作就照這個公式寫。<\/p>\n<\/div>"}, {"id": 15, "chapter": "第三節：AIoT 與智慧城市", "title": "第三節 隨堂測驗", "bg": "purple", "quiz": "q3", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第三節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>AIoT 與智慧城市 ｜ 3 題<\/p>\n<\/div>"}, {"id": 16, "chapter": "第四節：IoT 的另一面", "title": "IoT 的資安風險", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>⚠️ IoT 的另一面：越方便，破口越多<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-top:5px solid #dc2626;'>\n    <h3 style='color:#991b1b;font-size:1rem;margin-bottom:8px;'>🔓 常見資安風險<\/h3>\n    <ul style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:18px;margin:0;'>\n      <li><strong>預設密碼沒改<\/strong>：admin／123456 是駭客第一個試的<\/li>\n      <li><strong>韌體不更新<\/strong>：舊漏洞一直留著沒補<\/li>\n      <li><strong>裝置被綁架<\/strong>：被組成殭屍網路去攻擊別人<\/li>\n      <li><strong>攝影機外洩<\/strong>：家中畫面被公開在網路上<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;border-top:5px solid #16a34a;'>\n    <h3 style='color:#166534;font-size:1rem;margin-bottom:8px;'>🛡️ 買回家的第一件事<\/h3>\n    <ul style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:18px;margin:0;'>\n      <li><strong>立刻改掉預設密碼<\/strong>，用長一點的密碼<\/li>\n      <li><strong>開啟自動更新<\/strong>韌體<\/li>\n      <li><strong>只給必要權限<\/strong>，不需要定位就別開<\/li>\n      <li>攝影機<strong>不要對著臥室、書桌<\/strong>；不用時關掉<\/li>\n      <li>買<strong>有在維護、會發布更新<\/strong>的品牌<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🧠 <strong>核心觀念<\/strong>：IoT 裝置也是一台<strong>連在你家網路上的小電腦<\/strong>。你會幫電腦設密碼、更新系統，就該用同樣的態度對待它。第 5、6 週會把這件事講得更清楚。<\/p>\n<\/div>"}, {"id": 17, "chapter": "第四節：IoT 的另一面", "title": "IoT 的隱私問題", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔍 IoT 的隱私問題：它知道的比你以為的多<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#fbbf24;font-size:.9rem;font-weight:700;margin-bottom:10px;'>一支智慧手環，可以推論出關於你的哪些事？<\/p>\n  <div style='display:grid;grid-template-columns:repeat(2,1fr);gap:10px;'>\n    <div style='background:rgba(255,255,255,.08);border-radius:8px;padding:11px;'>\n      <p style='color:#e2e8f0;font-size:.82rem;margin:0;'>💤 <strong>睡眠資料<\/strong> → 幾點睡、幾點起、睡得好不好<\/p><\/div>\n    <div style='background:rgba(255,255,255,.08);border-radius:8px;padding:11px;'>\n      <p style='color:#e2e8f0;font-size:.82rem;margin:0;'>📍 <strong>位置紀錄<\/strong> → 家在哪、學校在哪、常去哪<\/p><\/div>\n    <div style='background:rgba(255,255,255,.08);border-radius:8px;padding:11px;'>\n      <p style='color:#e2e8f0;font-size:.82rem;margin:0;'>❤️ <strong>心率變化<\/strong> → 運動習慣，甚至情緒與健康狀況<\/p><\/div>\n    <div style='background:rgba(255,255,255,.08);border-radius:8px;padding:11px;'>\n      <p style='color:#e2e8f0;font-size:.82rem;margin:0;'>🚶 <strong>活動模式<\/strong> → 你今天有沒有去上學、幾點回家<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;margin-bottom:10px;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>📜 在台灣，<strong>《個人資料保護法》<\/strong>把「病歷、醫療、健康檢查」等列為<strong>特種個資<\/strong>，蒐集與利用有更嚴格的限制。使用穿戴裝置前，值得花兩分鐘看它的隱私權政策。<\/p>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🤔 <strong>沒有標準答案的問題<\/strong>：為了更方便、更安全，你願意讓多少資料被記錄？如果學校要用手環記錄全校學生的作息以「關心健康」，你贊成嗎？<\/p>\n<\/div>"}, {"id": 18, "chapter": "第四節：IoT 的另一面", "title": "科技的兩面", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>⚖️ 每一項 IoT 應用，都有兩面<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:24%;'>應用<\/th>\n    <th style='padding:7px;text-align:left;'>👍 帶來什麼好處<\/th>\n    <th style='padding:7px;text-align:left;'>👎 可能的代價<\/th><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'><strong>智慧路口監視<\/strong><\/td><td style='padding:7px;'>找回走失老人、追查肇事逃逸<\/td><td style='padding:7px;'>行蹤被完整記錄，被監控的感受<\/td><\/tr>\n  <tr><td style='padding:7px;'><strong>智慧電表<\/strong><\/td><td style='padding:7px;'>看得到用電習慣、可以省錢省電<\/td><td style='padding:7px;'>用電曲線可推測家中有沒有人在<\/td><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'><strong>校園刷卡系統<\/strong><\/td><td style='padding:7px;'>快速點名、家長知道孩子安全到校<\/td><td style='padding:7px;'>學生每天的行動被完整記錄<\/td><\/tr>\n  <tr><td style='padding:7px;'><strong>智慧音箱<\/strong><\/td><td style='padding:7px;'>語音操作方便，長輩與身障者受惠<\/td><td style='padding:7px;'>需要持續聆聽喚醒詞，錄音疑慮<\/td><\/tr>\n<\/table>\n<div style='background:#f5f3ff;padding:12px 16px;border-radius:8px;border-left:4px solid #7c3aed;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;line-height:1.85;'>\n    💬 <strong>Group Talk<\/strong>：選一列，分組討論「如果是你，你會裝嗎？要加上什麼條件才願意裝？」<br>\n    <span style='color:#64748b;font-size:.84rem;'>沒有標準答案，但要說得出理由——這正是第 7 週「安全 vs. 隱私」的預習。<\/span><\/p>\n<\/div>"}, {"id": 19, "chapter": "第四節：IoT 的另一面", "title": "第四節 隨堂測驗", "bg": "purple", "quiz": "q4", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第四節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>IoT 的資安與隱私 ｜ 3 題<\/p>\n<\/div>"}, {"id": 20, "chapter": "分組實作", "title": "分組實作：設計你的 IoT 裝置", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎯 分組實作：合作共創簡報「我設計的 IoT 裝置」<\/h2>\n<div style='background:#eff6ff;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#1e40af;font-size:.9rem;font-weight:700;margin-bottom:8px;'>📋 用 Google 簡報共同編輯，每組至少 3 頁<\/p>\n  <div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;'>\n    <div style='background:#fff;border-radius:9px;padding:12px;'>\n      <strong style='color:#2563eb;font-size:.85rem;'>Q1 · 第 1 頁<\/strong>\n      <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>用<strong>自己的話<\/strong>說明 IoT 或 AIoT 是什麼，可以舉例。不要抄定義。<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:12px;'>\n      <strong style='color:#2563eb;font-size:.85rem;'>Q2 · 第 2 頁<\/strong>\n      <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>舉一個<strong>生活中真實存在<\/strong>的 IoT 應用，說明它的優點<strong>和缺點<\/strong>。<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:12px;'>\n      <strong style='color:#2563eb;font-size:.85rem;'>Q3 · 第 3 頁<\/strong>\n      <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>設計一個<strong>全新的<\/strong> IoT 裝置：解決誰的什麼問題？用什麼感測器？怎麼運作？<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='display:grid;grid-template-columns:1.2fr 1fr;gap:12px;'>\n  <div style='background:#f0fdf4;border-radius:10px;padding:14px;'>\n    <strong style='color:#166534;font-size:.9rem;'>✅ 加分項目<\/strong>\n    <ul style='color:#334155;font-size:.8rem;line-height:1.85;padding-left:18px;margin:6px 0 0;'>\n      <li>畫出裝置草圖或流程圖（手繪拍照也可以）<\/li>\n      <li>誠實說出你的設計可能帶來的<strong>隱私或資安疑慮<\/strong><\/li>\n      <li>圖片使用免費授權素材並註明來源<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fffbeb;border-radius:10px;padding:14px;'>\n    <strong style='color:#92400e;font-size:.9rem;'>📏 評分（規準一）<\/strong>\n    <p style='font-size:.78rem;color:#334155;margin-top:6px;line-height:1.8;'>\n      <strong style='color:#059669;'>A<\/strong> 三題完整、整合多元資料且表達正確<br>\n      <strong style='color:#2563eb;'>B<\/strong> 三題完成、表達正確<br>\n      <strong style='color:#d97706;'>C<\/strong> 引導下完成主要內容<br>\n      <strong style='color:#dc2626;'>D<\/strong> 僅完成部分內容<\/p>\n  <\/div>\n<\/div>"}, {"id": 21, "chapter": "分組實作", "title": "本章重點回顧", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>📌 第 2 週 重點回顧<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;'>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>IoT 物聯網<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>物品連上網路，能感測、溝通、控制、學習——三層架構：感知／網路／應用<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>RFID 射頻識別<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>無線電波隔空讀取，悠遊卡就是；標籤＋讀取器兩件套<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>AIoT<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>IoT 蒐集資料 ＋ AI 分析決策；分辨關鍵是「會不會自己越用越懂你」<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>兩面性<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>每個便利背後都有隱私與資安代價；買回家先改預設密碼<\/p><\/div>\n<\/div>\n<div style='background:linear-gradient(90deg,rgba(13,148,136,.35),rgba(107,63,160,.35));border-radius:10px;padding:16px 20px;text-align:center;'>\n  <p style='color:#fff;font-size:1.02rem;font-weight:700;margin:0;'>IoT 每天產生的資料多到裝不下——那要放到哪裡？<\/p>\n  <p style='color:#cbd5e1;font-size:.82rem;margin-top:6px;'>下一週：大數據與雲端運算<\/p>\n<\/div>"}];window.__QUIZZES__={"q1": {"title": "第一節 隨堂測驗", "questions": [{"q": "關於「物聯網（IoT）」的定義，下列何者最正確？", "options": ["把很多電腦用網路線接在一起", "把日常物品裝上感測器並連上網路，讓它們能交換資料、自動完成任務", "一種可以上網的手機作業系統", "在網路上購買實體商品的服務"], "answer": 1, "explain": "IoT = Internet of Things。關鍵在於「物」——冰箱、路燈、手環這些原本不會上網的東西，裝上感測器與連線能力之後，就能互相傳資料、自動反應。"}, {"q": "IoT 裝置運作的四個環節，正確順序是？", "options": ["控制 → 感測 → 學習 → 溝通", "學習 → 控制 → 感測 → 溝通", "感測 → 溝通 → 控制 → 學習", "溝通 → 學習 → 感測 → 控制"], "answer": 2, "explain": "感測（收集環境資料）→ 溝通（透過網路傳送）→ 控制（遠端或自動下指令）→ 學習（分析行為模式，越用越聰明）。智慧冷氣就是這樣：測溫度 → 回傳 → 自動調整 → 記住你的習慣。"}, {"q": "下列哪一個「不算」典型的 IoT 裝置？", "options": ["能用手機遠端開關的智慧插座", "會回報土壤濕度的農田感測器", "沒有連網功能的傳統電子計算機", "連上網路、可語音控制的智慧音箱"], "answer": 2, "explain": "IoT 的關鍵是「連上網路並交換資料」。傳統計算機雖然是電子產品，但它不連網、不傳資料，所以不屬於物聯網。"}]}, "q2": {"title": "第二節 隨堂測驗", "questions": [{"q": "RFID（射頻識別）最主要的特性是什麼？", "options": ["必須用雷射光照射才能讀取", "利用無線電波，不需接觸就能讀取標籤中的資料", "只能在有網路的地方使用", "必須插入讀卡機才能運作"], "answer": 1, "explain": "RFID = Radio Frequency Identification。讀取器發射無線電波，標籤（Tag）回傳識別資料，所以悠遊卡「感應一下」就好，不用像磁條卡那樣刷過去。"}, {"q": "下列哪一項「不是」RFID 的典型應用？", "options": ["悠遊卡與門禁卡", "航空行李識別條", "倉儲貨物盤點", "電腦螢幕顯示畫面"], "answer": 3, "explain": "螢幕是輸出裝置，跟識別無關。RFID 用在需要「快速辨識大量物品或身分」的場合：交通票證、門禁、物流、圖書館借還書、醫院病歷手環。"}, {"q": "IoT 裝置上的「感測器」在系統中扮演什麼角色？", "options": ["負責把運算結果印出來", "負責把環境的物理現象（溫度、光線、位置…）轉成電腦看得懂的資料", "負責提供電力給裝置", "負責顯示畫面給使用者看"], "answer": 1, "explain": "感測器是 IoT 的「五官」。溫度感測器、光感測器、加速度計、GPS 都是把真實世界的現象轉成數位訊號——沒有感測器，IoT 就是瞎子。"}]}, "q3": {"title": "第三節 隨堂測驗", "questions": [{"q": "AIoT 是哪兩個技術的結合？", "options": ["AI ＋ IoT", "AI ＋ IT", "App ＋ IoT", "AR ＋ IoT"], "answer": 0, "explain": "AIoT = Artificial Intelligence + Internet of Things。IoT 負責「蒐集資料」，AI 負責「分析並決策」，兩者合體後裝置就能自己判斷該做什麼，而不只是把資料傳回來。"}, {"q": "一台「只會把室溫傳到手機 App，由你自己按開關」的冷氣，和一台「會學習你的作息、自動在你回家前調好溫度」的冷氣，差別在哪？", "options": ["前者是 AIoT，後者是 IoT", "前者是 IoT，後者加上了 AI 的分析與決策，屬於 AIoT", "兩者完全相同", "後者不需要網路"], "answer": 1, "explain": "只感測與傳輸 = IoT；能從歷史資料找出規律、自己做決定 = AIoT。判斷關鍵是：這台裝置有沒有「越用越懂你」。"}, {"q": "5G 網路對智慧城市最關鍵的兩項特性是？", "options": ["螢幕更大、電池更耐用", "低延遲與高連線密度（同時容納大量裝置）", "價格更便宜、訊號涵蓋更小", "不需要基地台"], "answer": 1, "explain": "智慧交通的紅綠燈調控、自駕車避障都要求「反應要快」（低延遲）；一座城市有幾十萬個感測器，則要求「同時連很多台」（高連線密度）。這兩點正是 5G 相較 4G 的主要突破。"}]}, "q4": {"title": "第四節 隨堂測驗", "questions": [{"q": "家用 IoT 裝置（如智慧攝影機）最常見的資安風險是什麼？", "options": ["耗電量太大導致電費暴增", "使用出廠預設密碼未修改，被陌生人從網路直接連進來", "體積太小容易弄丟", "無線電波會干擾電視訊號"], "answer": 1, "explain": "許多 IoT 裝置出廠密碼都是 admin／123456，而使用者從不修改。駭客用專門的搜尋引擎就能找到這些裝置。買回家第一件事：改密碼、更新韌體。"}, {"q": "智慧手環會持續記錄心跳、睡眠與位置。這些資料最主要的隱私疑慮是？", "options": ["資料量太大會塞爆手機", "這些屬於個人資料（甚至健康資料），若被外洩或轉賣，可能被用來推測你的作息與健康狀況", "手環會因此變慢", "資料不能備份"], "answer": 1, "explain": "健康與位置資料在《個人資料保護法》中屬於需要更謹慎處理的資訊。使用前應先看清楚隱私權政策：資料存在哪裡、會不會提供給第三方、能不能刪除。"}, {"q": "設計一個 IoT 裝置時，下列哪個思考順序最恰當？", "options": ["先想用什麼酷炫技術，再找地方套用", "先找出一個真實存在的問題，再想需要哪些感測與資料才能解決它", "先想產品名字，其他之後再說", "直接抄一個現有產品就好"], "answer": 1, "explain": "好的設計從「問題」出發，不是從「技術」出發。先問：誰有困擾？困擾是什麼？需要知道什麼資料才能解決？——這也是本週分組實作的評分重點。"}]}};</script>
+</head>
+<body>
+
+<!-- 進度條 -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- 頂部導覽列 -->
+<div id="topbar">
+  <span class="tb-title" id="tb-chapter">AI 時代的數位創作者</span>
+  <span class="tb-counter" id="tb-counter">1 / 21</span>
+  <button id="btn-toc" onclick="toggleToc()">目錄 ☰</button>
+</div>
+
+<!-- 投影片主體 -->
+<div id="slide-wrap">
+  <div id="slide-frame" class="bg-navy"></div>
+</div>
+
+<!-- 底部導覽 -->
+<div id="nav-bar">
+  <button class="nav-btn" id="btn-prev" onclick="prevSlide()" disabled>← 上一頁</button>
+  <div id="slide-dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="nextSlide()">下一頁 →</button>
+</div>
+
+<!-- TOC 側邊欄 -->
+<div id="toc">
+  <h3>📑 課程目錄</h3>
+  <div id="toc-list"></div>
+</div>
+
+<!-- 測驗 Modal -->
+<div id="quiz-overlay">
+  <div id="quiz-box">
+    <div id="quiz-header">
+      <h3 id="quiz-title">測驗</h3>
+      <span class="qh-score" id="quiz-score-preview"></span>
+    </div>
+    <div id="quiz-body"></div>
+    <div id="quiz-footer">
+      <span class="qf-score" id="quiz-result"></span>
+      <div style="display:flex;gap:10px">
+        <button id="btn-submit-quiz" onclick="submitQuiz()">送出答案</button>
+        <button id="btn-close-quiz" onclick="closeQuiz()">繼續學習 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  從 Jinja2 模板取得 Flask 傳入的資料
+// ════════════════════════════════════════════════════════════
+const TOTAL_SLIDES = 21;
+const CHAPTERS_DATA = [{"name": "\u5c01\u9762", "start": 1}, {"name": "\u7b2c\u4e00\u7bc0\uff1a\u4ec0\u9ebc\u662f\u7269\u806f\u7db2", "start": 2}, {"name": "\u7b2c\u4e8c\u7bc0\uff1aRFID \u8207\u611f\u6e2c\u5668", "start": 7}, {"name": "\u7b2c\u4e09\u7bc0\uff1aAIoT \u8207\u667a\u6167\u57ce\u5e02", "start": 11}, {"name": "\u7b2c\u56db\u7bc0\uff1aIoT \u7684\u53e6\u4e00\u9762", "start": 16}, {"name": "\u5206\u7d44\u5be6\u4f5c", "start": 20}];
+
+// ════════════════════════════════════════════════════════════
+//  全域狀態
+// ════════════════════════════════════════════════════════════
+let slides = [];
+let quizzes = {};
+let cur = 0;
+let answered = {};
+let tocVisible = true;
+const chartInstances = {};
+
+// ════════════════════════════════════════════════════════════
+//  初始化：從 Flask API 取得資料
+// ════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const [slidesRes, quizzesRes] = await Promise.all([
+      Promise.resolve({json:()=>window.__SLIDES__}),
+      Promise.resolve({json:()=>window.__QUIZZES__})
+    ]);
+    slides = await slidesRes.json();
+    quizzes = await quizzesRes.json();
+    buildToc();
+    buildDots();
+    goTo(0);
+  } catch (e) {
+    console.error('資料載入失敗：', e);
+    document.getElementById('slide-frame').innerHTML =
+      "<div style='color:red;padding:20px'>❌ 請確認 Flask 伺服器已啟動！<br><code>python app.py</code></div>";
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立目錄（TOC）
+// ════════════════════════════════════════════════════════════
+function buildToc() {
+  const list = document.getElementById('toc-list');
+  let lastChapter = '';
+  slides.forEach((s, i) => {
+    if (s.chapter !== lastChapter) {
+      const ch = document.createElement('div');
+      ch.className = 'toc-chapter';
+      ch.textContent = s.chapter;
+      list.appendChild(ch);
+      lastChapter = s.chapter;
+    }
+    const item = document.createElement('div');
+    item.className = 'toc-item';
+    item.id = `toc-${i}`;
+    item.textContent = `${s.id}. ${s.title}`;
+    item.onclick = () => goTo(i);
+    list.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立點狀導覽
+// ════════════════════════════════════════════════════════════
+function buildDots() {
+  const wrap = document.getElementById('slide-dots');
+  const step = Math.max(1, Math.floor(slides.length / 15));
+  slides.forEach((s, i) => {
+    if (i % step !== 0 && i !== slides.length - 1) return;
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    d.title = s.title;
+    d.onclick = () => goTo(i);
+    wrap.appendChild(d);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  前往特定投影片
+// ════════════════════════════════════════════════════════════
+function goTo(idx) {
+  if (idx < 0 || idx >= slides.length) return;
+  cur = idx;
+  const s = slides[cur];
+  const frame = document.getElementById('slide-frame');
+  frame.className = '';
+  frame.classList.add('bg-' + s.bg);
+  frame.style.opacity = '0';
+  frame.innerHTML = s.html;
+  setTimeout(() => { frame.style.opacity = '1'; }, 30);
+  frame.scrollTop = 0;
+  if (s.chart) setTimeout(() => renderChart(s.chart), 80);
+  if (s.video) setTimeout(() => renderVideo(s.id, s.video), 80);
+  updateNav();
+  updateToc();
+  updateProgress();
+}
+
+// ════════════════════════════════════════════════════════════
+//  導覽：下一頁（有測驗時先觸發測驗）
+// ════════════════════════════════════════════════════════════
+function nextSlide() {
+  const s = slides[cur];
+  if (s.quiz && !answered[s.quiz]) {
+    showQuiz(s.quiz);
+  } else {
+    goTo(cur + 1);
+  }
+}
+function prevSlide() { goTo(cur - 1); }
+
+// ════════════════════════════════════════════════════════════
+//  更新導覽列、進度條、TOC
+// ════════════════════════════════════════════════════════════
+function updateNav() {
+  document.getElementById('btn-prev').disabled = cur === 0;
+  const isLast = cur === slides.length - 1;
+  const hasUnansweredQuiz = slides[cur].quiz && !answered[slides[cur].quiz];
+  document.getElementById('btn-next').disabled = isLast && !hasUnansweredQuiz;
+  document.getElementById('tb-chapter').textContent = slides[cur].chapter + '：' + slides[cur].title;
+  document.getElementById('tb-counter').textContent = `${cur + 1} / ${slides.length}`;
+  document.querySelectorAll('.dot').forEach(d => {
+    d.classList.remove('active');
+    const i = parseInt(d.id.replace('dot-', ''));
+    if (cur === i) d.classList.add('active');
+    else if (cur > i) d.classList.add('done');
+    else d.classList.remove('done');
+  });
+}
+
+function updateProgress() {
+  const pct = ((cur + 1) / slides.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function updateToc() {
+  document.querySelectorAll('.toc-item').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === cur) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+    else if (i < cur) el.classList.add('done');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  切換 TOC 顯示
+// ════════════════════════════════════════════════════════════
+function toggleToc() {
+  tocVisible = !tocVisible;
+  document.getElementById('toc').classList.toggle('hidden', !tocVisible);
+  document.getElementById('slide-wrap').classList.toggle('toc-hidden', !tocVisible);
+  document.getElementById('nav-bar').classList.toggle('toc-hidden', !tocVisible);
+}
+
+// ════════════════════════════════════════════════════════════
+//  鍵盤快捷鍵
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+
+// ════════════════════════════════════════════════════════════
+//  影片渲染（YouTube 嵌入 / 搜尋按鈕 / 兩者兼具）
+//  嵌入使用 youtube-nocookie.com（不追蹤、不推薦其他影片、無個人化廣告）
+//  參數 rel=0（結束不推薦別家頻道）、modestbranding=1（隱藏 YT logo）
+// ════════════════════════════════════════════════════════════
+function _ytEmbedHtml(vid, title) {
+  // 使用 youtube-nocookie.com — YouTube 官方「隱私強化」網域，更乾淨
+  return `
+    <div class="video-embed">
+      <iframe src="https://www.youtube-nocookie.com/embed/${vid}?rel=0&modestbranding=1&iv_load_policy=3&fs=1"
+        allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        loading="lazy"></iframe>
+    </div>
+    <p style="text-align:center;font-size:.72rem;color:rgba(255,255,255,.55);margin-top:6px">▶ ${title}</p>`;
+}
+function _ytSearchHtml(query, title, desc) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  return `
+    <a href="${url}" target="_blank" class="video-search-btn">
+      <span class="yt-icon">▶️</span>
+      <span>
+        <strong>${title}</strong><br>
+        <small style="font-weight:400;opacity:.8">${desc}</small>
+      </span>
+    </a>`;
+}
+
+function renderVideo(slideId, video) {
+  const el = document.getElementById(`video-section-${slideId}`);
+  if (!el) return;
+  if (video.type === 'youtube') {
+    el.innerHTML = _ytEmbedHtml(video.id, video.title);
+  } else if (video.type === 'both') {
+    // 嵌入播放器 + 底下附「找不到？搜尋更多」備援
+    el.innerHTML = `
+      ${_ytEmbedHtml(video.id, video.title)}
+      <div style="margin-top:10px;">
+        ${_ytSearchHtml(video.query, video.search_title || '想看更多相關影片', video.desc || '在 YouTube 搜尋同主題其他教學')}
+      </div>`;
+  } else {
+    el.innerHTML = _ytSearchHtml(video.query, video.title, video.desc);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  圖表渲染（Chart.js，防止重複建立）
+// ════════════════════════════════════════════════════════════
+function renderChart(type) {
+  if (type === 'formats') {
+    const el = document.getElementById('chart-formats');
+    if (!el || chartInstances['formats']) return;
+    chartInstances['formats'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['JPEG（照片）', 'PNG（圖示）', 'PNG（截圖）', 'SVG（Logo）'],
+        datasets: [{
+          label: '典型檔案大小（KB）',
+          data: [150, 400, 1200, 8],
+          backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.raw} KB` } }
+        },
+        scales: {
+          y: {
+            type: 'logarithmic',
+            title: { display: true, text: '檔案大小 KB（對數刻度）', color:'#6b7280', font:{size:10} },
+            ticks: { color:'#6b7280', font:{size:10}, callback: v => v + ' KB' }
+          },
+          x: { ticks: { color:'#374151', font:{size:11} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+
+  if (type === 'ai_tools') {
+    const el = document.getElementById('chart-ai-tools');
+    if (!el || chartInstances['ai_tools']) return;
+    chartInstances['ai_tools'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['ChatGPT GPT-4o', 'Canva AI', 'Midjourney', 'Adobe Firefly'],
+        datasets: [
+          {
+            label: '圖像品質',
+            data: [4, 3, 5, 4],
+            backgroundColor: 'rgba(107,63,160,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '操作難易',
+            data: [5, 5, 2, 4],
+            backgroundColor: 'rgba(13,148,136,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '授權安全',
+            data: [3, 4, 3, 5],
+            backgroundColor: 'rgba(245,158,11,.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font:{size:10}, padding:8 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}：${'⭐'.repeat(ctx.raw)}` } }
+        },
+        scales: {
+          y: {
+            min: 0, max: 5,
+            ticks: { color:'#6b7280', font:{size:10}, stepSize: 1, callback: v => v + '⭐' }
+          },
+          x: { ticks: { color:'#374151', font:{size:10} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  測驗功能
+// ════════════════════════════════════════════════════════════
+let curQuizId = null;
+let quizUserAnswers = {};
+
+function showQuiz(qId) {
+  curQuizId = qId;
+  quizUserAnswers = {};
+  const q = quizzes[qId];
+  document.getElementById('quiz-title').textContent = q.title;
+  document.getElementById('quiz-score-preview').textContent = q.questions.length + ' 題';
+  document.getElementById('quiz-result').textContent = '';
+  document.getElementById('btn-submit-quiz').style.display = '';
+  document.getElementById('btn-close-quiz').style.display = 'none';
+
+  const body = document.getElementById('quiz-body');
+  body.innerHTML = '';
+  q.questions.forEach((question, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.innerHTML = `<div class="q-text">${qi+1}. ${question.q}</div>
+      <div class="q-options" id="opts-${qi}">
+        ${question.options.map((opt, oi) =>
+          `<div class="q-opt" id="opt-${qi}-${oi}" onclick="selectOpt(${qi},${oi})">${opt}</div>`
+        ).join('')}
+      </div>`;
+    body.appendChild(div);
+  });
+  document.getElementById('quiz-overlay').classList.add('show');
+}
+
+function selectOpt(qi, oi) {
+  quizUserAnswers[qi] = oi;
+  const q = quizzes[curQuizId];
+  for (let o = 0; o < q.questions[qi].options.length; o++) {
+    document.getElementById(`opt-${qi}-${o}`).classList.toggle('selected', o === oi);
+  }
+}
+
+function submitQuiz() {
+  const q = quizzes[curQuizId];
+  let correct = 0;
+  q.questions.forEach((question, qi) => {
+    const chosen = quizUserAnswers[qi];
+    const opts = document.getElementById(`opts-${qi}`);
+    for (let o = 0; o < question.options.length; o++) {
+      const el = document.getElementById(`opt-${qi}-${o}`);
+      el.onclick = null;
+      el.classList.remove('selected');
+      if (o === question.answer) el.classList.add('correct');
+      else if (o === chosen && chosen !== question.answer) el.classList.add('wrong');
+    }
+    if (!opts.querySelector('.q-exp')) {
+      const exp = document.createElement('div');
+      exp.className = 'q-exp';
+      exp.textContent = '💡 ' + question.explain;
+      opts.after(exp);
+    }
+    if (chosen === question.answer) correct++;
+  });
+  const pct = Math.round((correct / q.questions.length) * 100);
+  document.getElementById('quiz-result').textContent = `得分：${correct}/${q.questions.length}（${pct}%）`;
+  document.getElementById('btn-submit-quiz').style.display = 'none';
+  document.getElementById('btn-close-quiz').style.display = 'inline-block';
+  answered[curQuizId] = true;
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('show');
+  goTo(cur + 1);
+}
+
+// ════════════════════════════════════════════════════════════
+//  啟動
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
