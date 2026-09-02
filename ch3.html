@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 時代的數位創作者 — 互動教學</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════
+   CSS 變數（全站顏色主題）
+   ══════════════════════════════════════ */
+:root {
+  --navy:#1E3A5F; --teal:#0D9488; --sage:#6B8F8F;
+  --purple:#6B3FA0; --gold:#F59E0B; --light:#F1F5F9; --white:#fff;
+  --text:#111827; --muted:#374151;
+  --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Noto Sans TC',sans-serif;background:#0f172a;color:var(--text);overflow:hidden;height:100vh}
+
+/* ═══ 進度條 ═══ */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));transition:width .4s;z-index:200}
+
+/* ═══ 頂部導覽 ═══ */
+#topbar{position:fixed;top:3px;left:0;right:0;height:48px;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+#topbar .tb-title{color:#fff;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .tb-counter{color:var(--gold);font-size:.8rem;white-space:nowrap}
+#btn-toc{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:.75rem;cursor:pointer}
+#btn-toc:hover{background:rgba(255,255,255,.1)}
+
+/* ═══ 投影片容器 ═══ */
+#slide-wrap{position:fixed;top:51px;left:280px;right:0;bottom:64px;overflow:hidden;transition:left .3s}
+#slide-wrap.toc-hidden{left:0}
+#slide-frame{width:100%;height:100%;padding:20px 24px;overflow-y:auto;transition:opacity .2s}
+
+/* ═══ 投影片背景 ═══ */
+.bg-navy{background:linear-gradient(135deg,#1E3A5F 0%,#0f2340 100%)}
+.bg-teal{background:linear-gradient(135deg,#0D9488 0%,#065f46 100%)}
+.bg-sage{background:linear-gradient(135deg,#6B8F8F 0%,#4a6b6b 100%)}
+.bg-purple{background:linear-gradient(135deg,#6B3FA0 0%,#3b1f6b 100%)}
+.bg-white{background:#f8fafc}
+
+/* ═══ 底部導覽按鈕 ═══ */
+#nav-bar{position:fixed;bottom:0;left:280px;right:0;height:64px;background:rgba(15,23,42,.95);display:flex;align-items:center;justify-content:center;gap:16px;transition:left .3s;z-index:100}
+#nav-bar.toc-hidden{left:0}
+.nav-btn{background:var(--purple);color:#fff;border:none;padding:10px 28px;border-radius:24px;font-size:.9rem;cursor:pointer;font-weight:600;transition:all .2s}
+.nav-btn:hover{background:#5a3290;transform:translateY(-1px)}
+.nav-btn:disabled{background:#334155;cursor:not-allowed;transform:none}
+#slide-dots{display:flex;gap:6px;align-items:center;max-width:300px;flex-wrap:wrap;justify-content:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#334155;cursor:pointer;transition:all .2s}
+.dot.active{background:var(--gold);transform:scale(1.3)}
+.dot.done{background:var(--teal)}
+
+/* ═══ TOC 側邊欄 ═══ */
+#toc{position:fixed;top:51px;left:0;width:280px;bottom:0;background:#0f172a;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;z-index:50;transition:transform .3s}
+#toc.hidden{transform:translateX(-100%)}
+#toc h3{padding:14px 16px 10px;color:var(--gold);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,.06)}
+.toc-item{padding:7px 16px;font-size:.78rem;color:#cbd5e1;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc-item:hover{color:#fff;background:rgba(255,255,255,.05)}
+.toc-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(245,158,11,.08)}
+.toc-item.done{color:var(--teal)}
+.toc-chapter{padding:8px 16px 4px;font-size:.7rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ═══ 封面樣式 ═══ */
+.cover-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 130px);text-align:center;padding:20px}
+.cover-badge{background:rgba(107,63,160,.3);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:.8rem;letter-spacing:.08em;margin-bottom:20px;border:1px solid rgba(107,63,160,.4)}
+.cover-title{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
+.cover-sub{font-size:clamp(.9rem,1.5vw,1.1rem);color:#94a3b8;margin-bottom:24px;max-width:500px}
+.cover-tags{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px}
+.tag{background:rgba(255,255,255,.1);color:#cbd5e1;padding:5px 14px;border-radius:14px;font-size:.78rem;border:1px solid rgba(255,255,255,.15)}
+.cover-meta{font-size:.75rem;color:#475569}
+
+/* ═══ 投影片通用 ═══ */
+.slide-inner{padding:8px 4px}
+.slide-title{font-size:clamp(1.1rem,2.2vw,1.5rem);font-weight:700;margin-bottom:12px;color:var(--text)}
+.slide-desc{font-size:.88rem;color:var(--muted);margin-bottom:14px}
+.slide-note{font-size:.82rem;color:var(--muted);margin-top:12px;padding:8px 12px;background:rgba(0,0,0,.05);border-radius:8px}
+.tip-box{background:linear-gradient(135deg,rgba(107,63,160,.1),rgba(30,58,95,.1));border:1px solid rgba(107,63,160,.25);border-radius:10px;padding:12px 16px;font-size:.83rem;color:var(--text);margin-top:12px;line-height:1.6}
+
+/* ═══ 卡片格 ═══ */
+.card-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.card-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.info-card{background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.15)}
+.card-icon{font-size:1.6rem;margin-bottom:6px}
+.card-label{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:4px}
+.card-desc{font-size:.72rem;color:rgba(255,255,255,.92);line-height:1.4}
+
+/* ═══ 位元視覺 ═══ */
+.bit-demo{background:rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.bit-box{padding:8px 16px;border-radius:10px;font-weight:700;font-size:.9rem;text-align:center}
+.bit-off{background:rgba(239,68,68,.25);border:2px solid rgba(239,68,68,.5);color:#fca5a5}
+.bit-on{background:rgba(34,197,94,.25);border:2px solid rgba(34,197,94,.5);color:#86efac}
+
+/* ═══ 平台表格 ═══ */
+.platform-table{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:10px}
+.pt-header{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;background:var(--navy);color:#fff;padding:8px 12px;font-size:.75rem;font-weight:600;gap:8px}
+.pt-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;padding:8px 12px;font-size:.78rem;gap:8px;border-top:1px solid #f1f5f9;align-items:center}
+.pt-row:nth-child(even){background:#f8fafc}
+.pt-name{font-weight:600;color:var(--navy)}
+
+/* ═══ 四層架構 ═══ */
+.layer-stack{display:flex;flex-direction:column;gap:2px;margin:8px 0}
+.layer{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15)}
+.layer-hw{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.6);border-width:2px}
+.layer-os{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.6);border-width:2px}
+.layer-app{background:rgba(13,148,136,.12);border-color:rgba(13,148,136,.6);border-width:2px}
+.layer-user{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.6);border-width:2px}
+.layer-num{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.18);color:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.layer-name{font-weight:700;font-size:.88rem;color:#1e293b;margin-bottom:2px}
+.layer-detail{font-size:.75rem;color:#475569}
+.layer-arrow{text-align:center;color:#64748b;font-size:.9rem;margin:-4px 0}
+
+/* ═══ 儲存單位 ═══ */
+.units-grid{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.unit-row{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0}
+.unit-small{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
+.unit-large{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+.unit-name{font-size:.82rem;font-weight:700;color:#1e293b;min-width:150px}
+.unit-eq{font-size:.78rem;color:#475569}
+
+/* ═══ 資料表格 ═══ */
+.info-table{width:100%;border-collapse:collapse;font-size:.8rem;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+.info-table th,.info-table td{padding:8px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+.table-header{background:var(--navy);color:#fff}
+.table-header th{color:#fff;font-weight:600;font-size:.78rem;padding:9px 12px}
+.tr-highlight{background:rgba(13,148,136,.08)}
+.info-table tr:last-child td{border-bottom:none}
+.td-center{text-align:center}
+
+/* ═══ 功能卡片 ═══ */
+.func-card{display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0}
+.fc-num{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.fc-title{font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:3px}
+.fc-desc{font-size:.75rem;color:var(--muted);line-height:1.4}
+
+/* ═══ Fact Box ═══ */
+.fact-box{background:rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px}
+.fact-box p{font-size:.8rem;color:rgba(255,255,255,.95);margin-bottom:6px;line-height:1.5}
+
+/* ═══ 圖表 ═══ */
+.chart-wrap-full{width:100%;margin-bottom:10px}
+
+/* ═══ 作業 ═══ */
+.task-single{background:rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;border:1px solid rgba(255,255,255,.15);margin-bottom:14px}
+.task-title{font-size:.82rem;font-weight:700;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.task-item{font-size:.78rem;color:rgba(255,255,255,.8);margin-bottom:7px;padding-left:4px;line-height:1.4}
+.submit-box{display:flex;align-items:center;gap:14px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.4);border-radius:12px;padding:14px 16px}
+.submit-icon{font-size:2rem;flex-shrink:0}
+.submit-title{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:4px}
+.submit-desc{font-size:.78rem;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ═══ 影片區塊 ═══ */
+.video-section{margin:10px 0}
+.video-embed{border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9;width:100%;max-width:560px;margin:0 auto}
+.video-embed iframe{width:100%;height:100%;border:none;display:block}
+.video-search-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:600;transition:all .2s;width:fit-content;margin:0 auto}
+.video-search-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(220,38,38,.4)}
+.video-search-btn .yt-icon{font-size:1.2rem}
+
+/* ═══ 測驗 Modal ═══ */
+#quiz-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+#quiz-overlay.show{display:flex}
+#quiz-box{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#quiz-header{background:var(--purple);color:#fff;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
+#quiz-header h3{font-size:.95rem;font-weight:700}
+#quiz-header .qh-score{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:12px;font-size:.78rem}
+#quiz-body{padding:16px 20px;overflow-y:auto;flex:1}
+.quiz-q{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f1f5f9}
+.quiz-q:last-child{border-bottom:none}
+.q-text{font-size:.9rem;font-weight:600;color:var(--navy);margin-bottom:10px;line-height:1.4}
+.q-options{display:flex;flex-direction:column;gap:7px}
+.q-opt{padding:9px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:.82rem;transition:all .15s;line-height:1.3}
+.q-opt:hover{border-color:var(--purple);background:#faf5ff}
+.q-opt.selected{border-color:var(--navy);background:rgba(30,58,95,.05)}
+.q-opt.correct{border-color:#10b981;background:#f0fdf4;color:#065f46}
+.q-opt.wrong{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.q-exp{font-size:.78rem;color:#374151;background:#f8fafc;padding:8px 12px;border-radius:8px;margin-top:8px;border-left:3px solid var(--purple);line-height:1.5}
+#quiz-footer{padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;border-radius:0 0 16px 16px}
+#quiz-footer .qf-score{font-size:.88rem;font-weight:600;color:var(--navy)}
+#btn-submit-quiz,#btn-close-quiz{padding:8px 20px;border-radius:10px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s}
+#btn-submit-quiz{background:var(--navy);color:#fff}
+#btn-submit-quiz:hover{background:#0f2340}
+#btn-close-quiz{background:var(--purple);color:#fff;display:none}
+#btn-close-quiz:hover{background:#5a3290}
+</style>
+<script>window.__SLIDES__=[{"id": 1, "chapter": "封面", "title": "大數據與雲端運算", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:24px 20px;'>\n  <div style='font-size:66px;margin-bottom:14px;'>☁️<\/div>\n  <h1 style='font-size:2.6rem;font-weight:900;color:#fff;margin-bottom:10px;'>大數據與雲端運算<\/h1>\n  <h2 style='font-size:1.25rem;font-weight:400;color:#93c5fd;margin-bottom:24px;'>Big Data &amp; Cloud Computing<\/h2>\n  <div style='display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:22px;'>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>📊 4V<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🔬 資料科學<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🗺️ Google 工具實作<\/span>\n  <\/div>\n  <p style='color:#bfdbfe;font-size:1.05rem;'>七年級第一學期 ｜ 第 3 週<\/p>\n<\/div>"}, {"id": 2, "chapter": "第一節：資料變成大數據", "title": "從資料到大數據", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>從「一筆資料」到「大數據」<\/h2>\n<div style='display:flex;align-items:stretch;gap:8px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:11px;padding:14px;flex:1;text-align:center;'>\n    <div style='font-size:1.6rem;'>📝<\/div><strong style='color:#1e40af;font-size:.88rem;'>資料 Data<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;'>「7A 班 32 人」<br>單獨的數字與文字<\/p><\/div>\n  <div style='display:flex;align-items:center;color:#94a3b8;font-size:1.3rem;'>&#8594;<\/div>\n  <div style='background:#f0fdf4;border-radius:11px;padding:14px;flex:1;text-align:center;'>\n    <div style='font-size:1.6rem;'>📋<\/div><strong style='color:#166534;font-size:.88rem;'>資訊 Information<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;'>「全校 7 年級共 320 人」<br>整理過、有意義<\/p><\/div>\n  <div style='display:flex;align-items:center;color:#94a3b8;font-size:1.3rem;'>&#8594;<\/div>\n  <div style='background:#fefce8;border-radius:11px;padding:14px;flex:1;text-align:center;'>\n    <div style='font-size:1.6rem;'>💡<\/div><strong style='color:#854d0e;font-size:.88rem;'>知識 Knowledge<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;'>「人數逐年下降，需調整班級數」<br>可以行動的洞見<\/p><\/div>\n  <div style='display:flex;align-items:center;color:#94a3b8;font-size:1.3rem;'>&#8594;<\/div>\n  <div style='background:#f5f3ff;border-radius:11px;padding:14px;flex:1;text-align:center;'>\n    <div style='font-size:1.6rem;'>📊<\/div><strong style='color:#5b21b6;font-size:.88rem;'>大數據 Big Data<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;'>全國十年的資料<br>大到要用特殊工具處理<\/p><\/div>\n<\/div>\n<div style='background:#f1f5f9;border-radius:10px;padding:12px 16px;margin-bottom:10px;border-left:4px solid #0d9488;'>\n  <p style='margin:0;color:#0f172a;font-size:.92rem;'>📖 <strong>大數據<\/strong>：資料量大到「傳統的試算表或單一台電腦」無法處理的資料集合，必須用分散式運算與專門的工具才分析得動。<\/p>\n<\/div>\n<div style='background:#eff6ff;padding:11px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;'>💬 <strong>想一想<\/strong>：你今天用手機產生了哪些資料？（搜尋、按讚、位置、看影片的秒數…）這些資料最後去了哪裡、誰在用？<\/p>\n<\/div>"}, {"id": 3, "chapter": "第一節：資料變成大數據", "title": "大數據的 4V", "bg": "white", "quiz": null, "chart": null, "video": {"query": "什麼是大數據 Big Data 中文 介紹", "title": "延伸影片：什麼是大數據？", "desc": "在 YouTube 搜尋「大數據是什麼」，挑一支中文短片看看 4V"}, "html": "\n<h2 class='slide-title'>📊 大數據的四個特性（4V）<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.5rem;'>📦<\/div>\n    <strong style='font-size:1rem;'>Volume 大量<\/strong>\n    <p style='font-size:.8rem;opacity:.92;margin-top:6px;line-height:1.75;'>資料量龐大到單機處理不來。一部 4K 電影約幾十 GB，全球每天上傳的影片加起來是天文數字。<\/p><\/div>\n  <div style='background:linear-gradient(135deg,#065f46,#0d9488);color:#fff;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.5rem;'>⚡<\/div>\n    <strong style='font-size:1rem;'>Velocity 快速<\/strong>\n    <p style='font-size:.8rem;opacity:.92;margin-top:6px;line-height:1.75;'>資料即時產生、也要即時分析。地震速報要在幾秒內判斷並發警報，慢一秒就沒用了。<\/p><\/div>\n  <div style='background:linear-gradient(135deg,#9a3412,#f97316);color:#fff;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.5rem;'>🎨<\/div>\n    <strong style='font-size:1rem;'>Variety 多樣<\/strong>\n    <p style='font-size:.8rem;opacity:.92;margin-top:6px;line-height:1.75;'>文字、圖片、影片、聲音、感測器讀值、GPS 座標……格式全都不一樣，要先整理成能一起分析的形式。<\/p><\/div>\n  <div style='background:linear-gradient(135deg,#6b21a8,#a855f7);color:#fff;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.5rem;'>✅<\/div>\n    <strong style='font-size:1rem;'>Veracity 真實性<\/strong>\n    <p style='font-size:.8rem;opacity:.92;margin-top:6px;line-height:1.75;'>資料準不準確？感測器有沒有故障？問卷有沒有亂填？錯的資料會導出錯的決策。<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🧠 <strong>記憶口訣<\/strong>：<strong>又多、又快、又雜、還不一定對<\/strong>——這就是大數據難搞的地方，也是它需要專門技術的原因。<\/p>\n<\/div>\n<div id='video-section-3' class='video-section'><\/div>"}, {"id": 4, "chapter": "第一節：資料變成大數據", "title": "大數據就在你身邊", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🇹🇼 大數據就在你身邊 — 台灣在地案例<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;border-left:5px solid #2563eb;'>\n    <strong style='color:#1e40af;font-size:.95rem;'>🏥 全民健保資料<\/strong>\n    <p style='font-size:.8rem;color:#475569;margin-top:6px;line-height:1.8;'>台灣全民健保累積了長期、涵蓋幾乎全體國民的就醫紀錄，是國際上少見的大型健康資料庫，常被用於公共衛生與醫療研究（研究使用須經去識別化與審查）。<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;border-left:5px solid #16a34a;'>\n    <strong style='color:#166534;font-size:.95rem;'>🚲 YouBike 使用紀錄<\/strong>\n    <p style='font-size:.8rem;color:#475569;margin-top:6px;line-height:1.8;'>每一次借還車都是一筆資料。分析後可以知道哪些站點早上永遠沒車、哪些站點晚上永遠停滿，據以調度車輛、決定新站點要設在哪。<\/p><\/div>\n  <div style='background:#fefce8;border-radius:12px;padding:15px;border-left:5px solid #eab308;'>\n    <strong style='color:#854d0e;font-size:.95rem;'>🚌 公車與捷運刷卡資料<\/strong>\n    <p style='font-size:.8rem;color:#475569;margin-top:6px;line-height:1.8;'>電子票證讓每一次進出站都有紀錄，可以看出通勤尖峰、轉乘熱點，用來調整班次與規劃新路線。<\/p><\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-left:5px solid #dc2626;'>\n    <strong style='color:#991b1b;font-size:.95rem;'>🌏 政府開放資料平臺<\/strong>\n    <p style='font-size:.8rem;color:#475569;margin-top:6px;line-height:1.8;'>空氣品質、雨量、停車位、實價登錄、農產品價格……政府把資料免費開放，任何人（包含你）都可以下載來做分析與應用。<\/p><\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🔗 想找資料做專題？搜尋「<strong>政府資料開放平臺<\/strong>」或「<strong>臺北市政府資料大平臺<\/strong>」，裡面有上萬筆免費、可合法使用的資料集。<\/p>\n<\/div>"}, {"id": 5, "chapter": "第一節：資料變成大數據", "title": "大數據的兩難", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>⚖️ 大數據的兩難：便利與監控只有一線之隔<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;'>\n    <h3 style='color:#166534;font-size:1rem;margin-bottom:8px;'>👍 大數據幫我們做到<\/h3>\n    <ul style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:18px;margin:0;'>\n      <li>疫情期間追蹤疫調、預測物資需求<\/li>\n      <li>從交通資料改善壅塞與事故熱點<\/li>\n      <li>從醫療資料發現疾病的早期徵兆<\/li>\n      <li>推薦你可能真的會喜歡的內容<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;'>\n    <h3 style='color:#991b1b;font-size:1rem;margin-bottom:8px;'>👎 但同時也可能<\/h3>\n    <ul style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:18px;margin:0;'>\n      <li>把你的行蹤、喜好拼湊成完整檔案<\/li>\n      <li>用「精準投放」影響你的想法與選擇<\/li>\n      <li>把你關進只看得到同類意見的同溫層<\/li>\n      <li>資料一旦外洩，影響長久且難以挽回<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#1e293b;border-radius:10px;padding:14px 18px;margin-bottom:10px;'>\n  <p style='color:#e2e8f0;font-size:.88rem;margin:0;line-height:1.9;'>\n    🔐 <strong style='color:#fbbf24;'>關鍵概念：去識別化<\/strong><br>\n    研究使用大量個人資料時，必須先把姓名、身分證字號等可直接辨識個人的欄位移除或加密處理，讓資料無法對應回特定的人。這是《個人資料保護法》要求的基本保護——第 6 週會再深入。<\/p>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💬 <strong>討論<\/strong>：如果政府要用手機定位資料來做防疫追蹤，你贊成嗎？需要加上哪些條件（例如期限、監督、事後刪除）你才會接受？<\/p>\n<\/div>"}, {"id": 6, "chapter": "第一節：資料變成大數據", "title": "第一節 隨堂測驗", "bg": "purple", "quiz": "q1", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第一節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>大數據與 4V ｜ 3 題<\/p>\n<\/div>"}, {"id": 7, "chapter": "第二節：資料科學四步驟", "title": "資料科學四步驟", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔬 資料科學：從資料中挖出有用的知識<\/h2>\n<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:14px;'>\n    <div style='background:#2563eb;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>1<\/div>\n    <strong style='color:#1e40af;font-size:.88rem;'>收集資料<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.65;'>感測器、問卷、交易紀錄、開放資料<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:14px;'>\n    <div style='background:#16a34a;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>2<\/div>\n    <strong style='color:#166534;font-size:.88rem;'>資料清理<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.65;'>去除重複、錯誤、缺漏，統一格式<\/p><\/div>\n  <div style='background:#fefce8;border-radius:12px;padding:14px;'>\n    <div style='background:#eab308;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>3<\/div>\n    <strong style='color:#854d0e;font-size:.88rem;'>找出模式<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.65;'>用統計與演算法找出規律與關聯<\/p><\/div>\n  <div style='background:#f5f3ff;border-radius:12px;padding:14px;'>\n    <div style='background:#7c3aed;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>4<\/div>\n    <strong style='color:#5b21b6;font-size:.88rem;'>預測與決策<\/strong>\n    <p style='font-size:.75rem;color:#475569;margin-top:5px;line-height:1.65;'>建立模型，根據歷史推測未來<\/p><\/div>\n<\/div>\n<div style='background:#f1f5f9;border-radius:10px;padding:13px 16px;margin-bottom:10px;'>\n  <p style='color:#334155;font-size:.87rem;margin:0;line-height:1.9;'>\n    🎬 <strong>用「串流平台怎麼知道你喜歡看什麼」走一遍<\/strong>：<br>\n    ① 記錄你看了哪些片、看多久、有沒有跳過 → ② 排除誤點開、家人共用等雜訊 → ③ 找出「看過 A 的人也常看 B」的規律 → ④ 推薦下一部給你<\/p>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>⏱️ <strong>冷知識<\/strong>：資料科學家常說，一個專案有<strong>大半時間花在第 2 步「清理」<\/strong>上。真實世界的資料，遠比課本上的漂亮表格髒得多。<\/p>\n<\/div>"}, {"id": 8, "chapter": "第二節：資料科學四步驟", "title": "髒資料長什麼樣", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🧹 髒資料長什麼樣？（真實案例）<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:22%;'>問題<\/th>\n    <th style='padding:7px;text-align:left;width:34%;'>例子<\/th>\n    <th style='padding:7px;text-align:left;'>怎麼處理<\/th><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'>重複資料<\/td><td style='padding:7px;'>同一個人填了 3 次問卷<\/td><td style='padding:7px;'>依帳號或時間戳記去重複<\/td><\/tr>\n  <tr><td style='padding:7px;'>格式不一致<\/td><td style='padding:7px;'>「台北市」「臺北市」「北市」<\/td><td style='padding:7px;'>統一寫法（尋找與取代）<\/td><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'>明顯錯誤值<\/td><td style='padding:7px;'>身高填 300、年齡填 999<\/td><td style='padding:7px;'>設定合理範圍，標記或排除<\/td><\/tr>\n  <tr><td style='padding:7px;'>缺漏值<\/td><td style='padding:7px;'>某幾天的溫度是空白<\/td><td style='padding:7px;'>標記為「無資料」，不要當成 0<\/td><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'>單位混用<\/td><td style='padding:7px;'>有人填公分、有人填公尺<\/td><td style='padding:7px;'>換算成同一單位<\/td><\/tr>\n<\/table>\n<div style='background:#fef2f2;padding:12px 16px;border-radius:8px;border-left:4px solid #dc2626;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ⚠️ <strong>「缺漏 ≠ 0」是最常見的致命錯誤<\/strong>：如果溫度沒測到卻填 0，算出來的平均氣溫會嚴重偏低。缺漏就標「無資料」，並在報告中說明有幾筆缺漏、你怎麼處理。<\/p>\n<\/div>"}, {"id": 9, "chapter": "第二節：資料科學四步驟", "title": "相關不等於因果", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🚨 資料素養最重要的一課：相關 ≠ 因果<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#fbbf24;font-size:.95rem;font-weight:700;margin-bottom:10px;'>「夏天冰淇淋賣得多，溺水事件也變多」→ 所以吃冰淇淋會溺水？<\/p>\n  <div style='display:flex;align-items:center;gap:10px;flex-wrap:wrap;'>\n    <div style='background:rgba(59,130,246,.2);border-radius:9px;padding:11px 15px;'>\n      <span style='color:#93c5fd;font-size:.85rem;'>🍦 冰淇淋銷量<\/span><\/div>\n    <span style='color:#64748b;'>&#8596;<\/span>\n    <div style='background:rgba(239,68,68,.2);border-radius:9px;padding:11px 15px;'>\n      <span style='color:#fca5a5;font-size:.85rem;'>🌊 溺水事件<\/span><\/div>\n    <span style='color:#64748b;margin-left:8px;'>兩者都被 →<\/span>\n    <div style='background:rgba(245,158,11,.25);border-radius:9px;padding:11px 15px;'>\n      <span style='color:#fbbf24;font-size:.85rem;font-weight:700;'>☀️ 天氣熱（真正的原因）<\/span><\/div>\n  <\/div>\n  <p style='color:#cbd5e1;font-size:.82rem;margin-top:12px;'>兩件事一起發生（相關），不代表其中一件造成另一件（因果）。可能有第三個因素同時影響了兩者。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;'>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>✅ 正確的說法<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「資料顯示這兩者<strong>有相關<\/strong>，可能的原因包括…，還需要進一步驗證。」<\/p><\/div>\n  <div style='background:#fef2f2;border-radius:10px;padding:13px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>❌ 危險的說法<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「資料<strong>證明<\/strong>了 A <strong>導致<\/strong> B。」——專題報告寫這句，會被扣分。<\/p><\/div>\n<\/div>"}, {"id": 10, "chapter": "第二節：資料科學四步驟", "title": "第二節 隨堂測驗", "bg": "purple", "quiz": "q2", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第二節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>資料科學與資料素養 ｜ 3 題<\/p>\n<\/div>"}, {"id": 11, "chapter": "第三節：雲端運算", "title": "什麼是雲端運算", "bg": "white", "quiz": null, "chart": null, "video": {"query": "雲端運算 是什麼 三分鐘 中文", "title": "延伸影片：三分鐘認識雲端運算", "desc": "在 YouTube 搜尋「雲端運算 是什麼」，看看資料中心長什麼樣"}, "html": "\n<h2 class='slide-title'>☁️ 雲端運算：把運算與儲存搬到網路上<\/h2>\n<div style='background:#f1f5f9;border-radius:10px;padding:12px 16px;margin-bottom:12px;border-left:4px solid #0d9488;'>\n  <p style='margin:0;color:#0f172a;font-size:.92rem;'>📖 透過<strong>網際網路<\/strong>提供的運算服務（伺服器、儲存空間、軟體），<strong>用多少付多少<\/strong>，不必自己買設備。<\/p>\n<\/div>\n<div style='background:#1e293b;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#fbbf24;font-size:.92rem;font-weight:700;margin-bottom:8px;'>💡 破解迷思：「雲端」其實一點也不在天上<\/p>\n  <p style='color:#e2e8f0;font-size:.84rem;margin:0;line-height:1.9;'>\n    你的照片、作業並不是飄在雲裡，而是存在<strong>某個國家、某座資料中心、某台實體伺服器的硬碟<\/strong>上。「雲」只是一個比喻：你不需要知道它在哪，需要時打開網路就拿得到。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;'>\n  <div style='background:#eff6ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#1e40af;font-size:.87rem;'>💰 省成本<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>不用買伺服器、不用養機房，需求變大再加租<\/p><\/div>\n  <div style='background:#f0fdf4;padding:13px;border-radius:10px;'>\n    <strong style='color:#166534;font-size:.87rem;'>🔄 隨處存取<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>手機、平板、電腦登入同一帳號就能接續工作<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;'>\n    <strong style='color:#854d0e;font-size:.87rem;'>💾 自動備份<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>有版本紀錄，改壞了可以還原成昨天的版本<\/p><\/div>\n<\/div>\n<div id='video-section-11' class='video-section'><\/div>"}, {"id": 12, "chapter": "第三節：雲端運算", "title": "你每天都在用的雲端", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📱 你每天都在用的雲端服務<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:26%;'>你在做的事<\/th>\n    <th style='padding:7px;text-align:left;'>背後的雲端運算<\/th><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'>📧 收發 Gmail<\/td><td style='padding:7px;'>信件存在 Google 的伺服器，換裝置登入都看得到<\/td><\/tr>\n  <tr><td style='padding:7px;'>📄 用 Google 文件寫作業<\/td><td style='padding:7px;'>不用按存檔，每次修改都即時同步到雲端並留下版本<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'>📸 手機照片自動備份<\/td><td style='padding:7px;'>手機掉了照片還在；也代表照片副本存在別人的機房<\/td><\/tr>\n  <tr><td style='padding:7px;'>🎮 雲端遊戲、線上遊戲存檔<\/td><td style='padding:7px;'>運算在遠端伺服器完成，你的裝置只負責顯示與操作<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'>🤖 和 AI 聊天<\/td><td style='padding:7px;'>模型跑在資料中心的大量 GPU 上，不是在你的手機裡<\/td><\/tr>\n<\/table>\n<div style='background:#fef2f2;padding:12px 16px;border-radius:8px;border-left:4px solid #dc2626;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ⚠️ <strong>雲端的另一面<\/strong>：<br>\n    ① <strong>沒網路就用不了<\/strong>（離線功能有限）　② <strong>資料存在別人的機房<\/strong>，要看清楚服務條款　③ <strong>分享權限設錯就等於公開<\/strong>　④ 服務可能終止或改變收費<\/p>\n<\/div>"}, {"id": 13, "chapter": "第三節：雲端運算", "title": "雲端分享權限", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔑 分享權限：外洩最常見的原因是「自己設錯」<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;border-top:5px solid #16a34a;'>\n    <strong style='color:#166534;font-size:.92rem;'>🔒 限制存取<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'>只有你和你指定的人看得到。<br><strong>最安全<\/strong>，繳交作業時把老師加進來即可。<\/p><\/div>\n  <div style='background:#fefce8;border-radius:12px;padding:15px;border-top:5px solid #eab308;'>\n    <strong style='color:#854d0e;font-size:.92rem;'>🏫 校內知道連結者<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'>限學校帳號才打得開。<br><strong>小組共編適用<\/strong>，記得選「檢視」或「編輯」要正確。<\/p><\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-top:5px solid #dc2626;'>\n    <strong style='color:#991b1b;font-size:.92rem;'>🌐 網路上任何人<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'>全世界都能開。<br><strong>只用在真的要公開的東西<\/strong>，且絕不能給「編輯」權限。<\/p><\/div>\n<\/div>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;margin-bottom:10px;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ✅ <strong>三個好習慣<\/strong>：① 分享前先問「這份東西需要誰看得到？」② 給「檢視」就不要給「編輯」　③ 專題做完後回頭把不需要的分享權限收回來。<\/p>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🧪 <strong>課堂小測試<\/strong>：把你的作業連結貼給隔壁組，看看他們打不打得開、能不能改。打得開就代表——全世界也打得開。<\/p>\n<\/div>"}, {"id": 14, "chapter": "第三節：雲端運算", "title": "雲端與大數據的關係", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>🔗 把三週的內容串起來<\/h2>\n<div style='background:rgba(255,255,255,.12);border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <div style='display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;'>\n    <div style='background:rgba(255,255,255,.15);border-radius:10px;padding:13px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.6rem;'>📡<\/div><strong style='color:#fff;font-size:.86rem;'>IoT 感測器<\/strong>\n      <p style='color:#ccfbf1;font-size:.73rem;margin-top:4px;'>持續產生資料<\/p><\/div>\n    <span style='color:#fbbf24;font-size:1.4rem;'>&#8594;<\/span>\n    <div style='background:rgba(255,255,255,.15);border-radius:10px;padding:13px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.6rem;'>☁️<\/div><strong style='color:#fff;font-size:.86rem;'>雲端儲存<\/strong>\n      <p style='color:#ccfbf1;font-size:.73rem;margin-top:4px;'>資料集中存放<\/p><\/div>\n    <span style='color:#fbbf24;font-size:1.4rem;'>&#8594;<\/span>\n    <div style='background:rgba(255,255,255,.15);border-radius:10px;padding:13px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.6rem;'>📊<\/div><strong style='color:#fff;font-size:.86rem;'>大數據分析<\/strong>\n      <p style='color:#ccfbf1;font-size:.73rem;margin-top:4px;'>找出規律<\/p><\/div>\n    <span style='color:#fbbf24;font-size:1.4rem;'>&#8594;<\/span>\n    <div style='background:rgba(255,255,255,.15);border-radius:10px;padding:13px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.6rem;'>🤖<\/div><strong style='color:#fff;font-size:.86rem;'>AI 學習<\/strong>\n      <p style='color:#ccfbf1;font-size:.73rem;margin-top:4px;'>下週的主題<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='background:rgba(0,0,0,.2);border-radius:8px;padding:13px 18px;'>\n  <p style='color:#f0fdfa;font-size:.9rem;margin:0;line-height:1.9;'>\n    🧠 <strong>為什麼 AI 這幾年突然變強？<\/strong>因為這三件事同時到位了：<strong>IoT 與網路產生了海量資料<\/strong>、<strong>雲端提供了便宜的儲存與運算<\/strong>、<strong>晶片（GPU／NPU）跑得夠快<\/strong>。<br>\n    沒有資料，再厲害的 AI 也學不會東西——這就是下一週的起點。<\/p>\n<\/div>"}, {"id": 15, "chapter": "第三節：雲端運算", "title": "第三節 隨堂測驗", "bg": "purple", "quiz": "q3", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第三節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>雲端運算與分享權限 ｜ 3 題<\/p>\n<\/div>"}, {"id": 16, "chapter": "第四節：Google 工具組實作", "title": "Google 工具組總覽", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🧰 Google 工具組：雲端運算的最佳範例<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:14px;border-radius:11px;'>\n    <div style='font-size:1.5rem;'>📈<\/div><strong style='color:#1e40af;font-size:.88rem;'>試算表 Sheets<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>整理資料、算平均、畫圖表。今天的主角。<\/p><\/div>\n  <div style='background:#f0fdf4;padding:14px;border-radius:11px;'>\n    <div style='font-size:1.5rem;'>🗺️<\/div><strong style='color:#166534;font-size:.88rem;'>My Maps<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>把資料放到地圖上，配合探索課程做地方踏查。<\/p><\/div>\n  <div style='background:#fefce8;padding:14px;border-radius:11px;'>\n    <div style='font-size:1.5rem;'>📋<\/div><strong style='color:#854d0e;font-size:.88rem;'>表單 Forms<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>做問卷收資料，答案自動變成試算表。<\/p><\/div>\n  <div style='background:#f5f3ff;padding:14px;border-radius:11px;'>\n    <div style='font-size:1.5rem;'>📊<\/div><strong style='color:#5b21b6;font-size:.88rem;'>簡報 Slides<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>多人同時編輯同一份，第 10–14 週專題必用。<\/p><\/div>\n  <div style='background:#ecfeff;padding:14px;border-radius:11px;'>\n    <div style='font-size:1.5rem;'>📄<\/div><strong style='color:#155e75;font-size:.88rem;'>文件 Docs<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>寫學習單與企劃，可留言互評。<\/p><\/div>\n  <div style='background:#fef2f2;padding:14px;border-radius:11px;'>\n    <div style='font-size:1.5rem;'>📁<\/div><strong style='color:#991b1b;font-size:.88rem;'>雲端硬碟 Drive<\/strong>\n    <p style='font-size:.76rem;color:#475569;margin-top:5px;line-height:1.7;'>所有檔案的家，建立資料夾管理整學期作業。<\/p><\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>📂 <strong>先做這件事<\/strong>：在雲端硬碟建立資料夾 <code>115-1 資訊科技<\/code>，這學期所有作業都放進去。期末整理學習歷程時，你會感謝現在的自己。<\/p>\n<\/div>"}, {"id": 17, "chapter": "第四節：Google 工具組實作", "title": "Google 試算表入門", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📈 Google 試算表：四個函式打天下<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:12px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:24%;'>函式<\/th>\n    <th style='padding:7px;text-align:left;width:26%;'>做什麼<\/th>\n    <th style='padding:7px;text-align:left;'>寫法範例<\/th><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'><strong>SUM<\/strong><\/td><td style='padding:7px;'>加總<\/td><td style='padding:7px;'><code>=SUM(B2:B21)<\/code> → B2 到 B21 全部加起來<\/td><\/tr>\n  <tr><td style='padding:7px;'><strong>AVERAGE<\/strong><\/td><td style='padding:7px;'>平均<\/td><td style='padding:7px;'><code>=AVERAGE(B2:B21)<\/code> → 這 20 筆的平均值<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:7px;'><strong>MAX / MIN<\/strong><\/td><td style='padding:7px;'>最大／最小<\/td><td style='padding:7px;'><code>=MAX(B2:B21)<\/code>、<code>=MIN(B2:B21)<\/code><\/td><\/tr>\n  <tr><td style='padding:7px;'><strong>COUNT<\/strong><\/td><td style='padding:7px;'>有幾筆數字<\/td><td style='padding:7px;'><code>=COUNT(B2:B21)<\/code> → 空白的不算<\/td><\/tr>\n<\/table>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:10px;'>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>📊 插入圖表三步驟<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.8;'>① 選取要畫的資料範圍<br>② 功能表「插入 → 圖表」<br>③ 在右側選圖表類型、改標題<\/p><\/div>\n  <div style='background:#fffbeb;border-radius:10px;padding:13px;'>\n    <strong style='color:#92400e;font-size:.88rem;'>🎯 選對圖表類型<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.8;'><strong>長條圖<\/strong>：比較不同項目的多寡<br><strong>折線圖<\/strong>：看隨時間的變化<br><strong>圓餅圖<\/strong>：看各部分佔整體的比例（項目別超過 6 個）<\/p><\/div>\n<\/div>\n<div style='background:#fef2f2;padding:11px 16px;border-radius:8px;border-left:4px solid #dc2626;'>\n  <p style='color:#374151;font-size:.87rem;margin:0;'>⚠️ <strong>圖表也會說謊<\/strong>：如果長條圖的縱軸不從 0 開始，小差距看起來會像天壤之別。做圖表時<strong>一定要加標題、標明單位<\/strong>，看圖表時<strong>一定要先看縱軸<\/strong>。<\/p>\n<\/div>"}, {"id": 18, "chapter": "第四節：Google 工具組實作", "title": "Google My Maps 實作", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🗺️ Google My Maps：把資料放到地圖上說故事<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;'>\n    <h3 style='color:#1e40af;font-size:.98rem;margin-bottom:8px;'>🧭 操作五步驟<\/h3>\n    <ol style='color:#334155;font-size:.82rem;line-height:1.95;padding-left:20px;margin:0;'>\n      <li>用學校帳號登入，開啟 Google My Maps，「建立新地圖」<\/li>\n      <li>幫地圖命名（例如：<code>芳和周邊生活地圖<\/code>）<\/li>\n      <li>搜尋地點 →「新增至地圖」，建立標記<\/li>\n      <li>點標記可以編輯<strong>名稱、說明、加照片<\/strong>，也能改圖示顏色<\/li>\n      <li>用「圖層」分類（例如：美食／文化／綠地），再分享或嵌入<\/li>\n    <\/ol>\n  <\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;'>\n    <h3 style='color:#166534;font-size:.98rem;margin-bottom:8px;'>🎒 配合七年級探索課程<\/h3>\n    <p style='font-size:.82rem;color:#475569;line-height:1.9;margin:0;'>\n      這學期七年級的探索課程會走出校園。你可以用 My Maps：<br>\n      • 標出踏查路線與觀察點<br>\n      • 每個點放一張<strong>自己拍的照片<\/strong>與 50 字觀察<br>\n      • 加入你查到的資料（例如該路口的車流、店家數量）<br>\n      • 期末把它變成統整成果的一部分<\/p>\n  <\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🧠 <strong>為什麼地圖這麼好用？<\/strong>因為人腦對「空間」的理解遠快於一堆數字。同樣一份資料，做成表格要看半天，放到地圖上，「哪裡多、哪裡少」一眼就看出來——這叫做<strong>資料視覺化<\/strong>。<\/p>\n<\/div>"}, {"id": 19, "chapter": "第四節：Google 工具組實作", "title": "安全使用雲端小提醒", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🛡️ 用 Google 工具的六個好習慣<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;padding:13px;border-radius:10px;'>\n    <strong style='color:#166534;font-size:.87rem;'>① 檔名寫清楚<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'><code>座號_姓名_作業名稱<\/code>。老師收到 30 份「未命名文件」時會很想哭。<\/p><\/div>\n  <div style='background:#eff6ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#1e40af;font-size:.87rem;'>② 用資料夾分類<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>一科一個資料夾，期末找檔案不用翻半小時。<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;'>\n    <strong style='color:#854d0e;font-size:.87rem;'>③ 善用版本紀錄<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>「檔案 → 版本記錄」可以看到誰改了什麼、還原到之前的版本。<\/p><\/div>\n  <div style='background:#f5f3ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#5b21b6;font-size:.87rem;'>④ 共編要留名<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>小組作業在每頁註明負責人，貢獻度看得見，評分才公平。<\/p><\/div>\n  <div style='background:#fef2f2;padding:13px;border-radius:10px;'>\n    <strong style='color:#991b1b;font-size:.87rem;'>⑤ 不放敏感資料<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>身分證字號、住家地址、密碼，都不要放進共用文件。<\/p><\/div>\n  <div style='background:#ecfeff;padding:13px;border-radius:10px;'>\n    <strong style='color:#155e75;font-size:.87rem;'>⑥ 用完登出<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>公用電腦不登出，等於把整個雲端硬碟交給下一個人。<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💡 這六點看起來很基本，但幾乎每一屆都有人在期末因為「檔案找不到」「權限沒開」而交不出作業。現在花五分鐘養成習慣，之後省下好幾小時。<\/p>\n<\/div>"}, {"id": 20, "chapter": "第四節：Google 工具組實作", "title": "第四節 隨堂測驗", "bg": "purple", "quiz": "q4", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第四節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>Google 工具實作 ｜ 3 題<\/p>\n<\/div>"}, {"id": 21, "chapter": "課堂實作", "title": "課堂實作：我的生活資料地圖", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎯 課堂實作：我的生活資料地圖<\/h2>\n<div style='display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:16px;'>\n    <h3 style='color:#1e40af;font-size:1rem;margin-bottom:8px;'>📋 任務（兩件事，個人或兩人一組）<\/h3>\n    <p style='font-size:.84rem;color:#334155;margin:0 0 6px;'><strong>A. Google My Maps<\/strong><\/p>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.85;padding-left:20px;margin:0 0 10px;'>\n      <li>建立一張地圖，標出<strong>「我的上學路線」上的 5 個地點<\/strong><\/li>\n      <li>每個標記寫上名稱＋一句觀察（例如「這個路口早上很塞」）<\/li>\n    <\/ul>\n    <p style='font-size:.84rem;color:#334155;margin:0 0 6px;'><strong>B. Google 試算表<\/strong><\/p>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.85;padding-left:20px;margin:0;'>\n      <li>記錄<strong>連續 7 天<\/strong>的一項生活數據（睡眠時數／使用 3C 時數／步數擇一）<\/li>\n      <li>用 <code>AVERAGE<\/code>、<code>MAX<\/code>、<code>MIN<\/code> 算出平均與最高最低<\/li>\n      <li>插入一張<strong>折線圖<\/strong>，加上標題與單位<\/li>\n      <li>寫出 <strong>1 個洞見<\/strong>：你從資料裡發現了什麼？<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fffbeb;border-radius:12px;padding:16px;'>\n    <h3 style='color:#92400e;font-size:1rem;margin-bottom:8px;'>📏 評分（規準一）<\/h3>\n    <table style='width:100%;font-size:.79rem;color:#334155;border-collapse:collapse;'>\n      <tr><td style='padding:5px 0;width:14%;'><strong style='color:#059669;'>A<\/strong><\/td><td>地圖與試算表都完成，圖表格式正確，洞見具體且與資料相符<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#2563eb;'>B<\/strong><\/td><td>兩項都完成，能正確表達資料意涵<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#d97706;'>C<\/strong><\/td><td>在引導下完成主要項目，能簡單說明<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#dc2626;'>D<\/strong><\/td><td>僅完成部分基本功能<\/td><\/tr>\n    <\/table>\n    <div style='background:#fff;border-radius:8px;padding:10px;margin-top:10px;'>\n      <p style='font-size:.78rem;color:#475569;margin:0;line-height:1.75;'>⚠️ <strong>隱私提醒<\/strong>：地圖標記<strong>不要標出你家的確切門牌<\/strong>，可以用附近的路口或商店代替。這就是「數位足跡」的實際練習。<\/p>\n    <\/div>\n  <\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🏆 <strong>加分挑戰<\/strong>：到「政府資料開放平臺」下載一份你有興趣的資料（例如各行政區的公園數量），畫成圖表並寫下發現。<\/p>\n<\/div>"}, {"id": 22, "chapter": "課堂實作", "title": "本章重點回顧", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>📌 第 3 週 重點回顧<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;'>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>大數據 4V<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>Volume 大量、Velocity 快速、Variety 多樣、Veracity 真實性<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>資料科學四步驟<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>收集 → 清理 → 找模式 → 預測；清理最花時間也最重要<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>相關 ≠ 因果<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>兩件事一起發生，不代表其中一件造成另一件<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>雲端運算<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>資料存在別人的機房；分享權限設錯＝自己公開資料<\/p><\/div>\n<\/div>\n<div style='background:linear-gradient(90deg,rgba(13,148,136,.35),rgba(107,63,160,.35));border-radius:10px;padding:16px 20px;text-align:center;'>\n  <p style='color:#fff;font-size:1.02rem;font-weight:700;margin:0;'>有了海量資料與便宜的雲端運算，機器終於學得會東西了。<\/p>\n  <p style='color:#cbd5e1;font-size:.82rem;margin-top:6px;'>下一週：人工智慧與機器學習<\/p>\n<\/div>"}];window.__QUIZZES__={"q1": {"title": "第一節 隨堂測驗", "questions": [{"q": "大數據的四個 V 中，「Volume」指的是什麼？", "options": ["資料產生的速度很快", "資料的數量非常龐大", "資料的格式很多樣", "資料的正確性很重要"], "answer": 1, "explain": "4V＝Volume（大量）、Velocity（快速）、Variety（多樣）、Veracity（真實性）。Volume 說的是「量大到傳統工具處理不來」，這正是「大」數據的由來。"}, {"q": "一家超商想分析「哪些商品常常被一起購買」，這最符合大數據 4V 中的哪一項挑戰？", "options": ["Variety：要同時處理交易紀錄、時間、天氣、會員資料等不同格式的資料", "Veracity：資料一定是假的", "完全不屬於大數據", "Volume：資料一定只有幾十筆"], "answer": 0, "explain": "要找出「一起被買」的規律，必須把交易明細、時段、天氣、地點、會員屬性等各種格式的資料湊在一起分析，這就是 Variety（多樣性）的挑戰。"}, {"q": "關於「Veracity（真實性）」，下列敘述何者正確？", "options": ["資料越多，結論一定越正確", "資料只要是電腦產生的就一定正確", "如果輸入的資料本身有錯或有偏差，分析出來的結論也會錯", "真實性只跟資料量有關"], "answer": 2, "explain": "資料科學有句名言：「Garbage in, garbage out（垃圾進、垃圾出）」。感測器故障、問卷亂填、樣本偏誤，都會讓後面的分析全盤皆錯——所以「資料清理」是必要步驟。"}]}, "q2": {"title": "第二節 隨堂測驗", "questions": [{"q": "資料科學的四個步驟，正確順序是？", "options": ["預測未來 → 收集資料 → 資料清理 → 找出模式", "收集資料 → 資料清理 → 找出模式 → 預測未來", "資料清理 → 收集資料 → 預測未來 → 找出模式", "找出模式 → 預測未來 → 收集資料 → 資料清理"], "answer": 1, "explain": "先有資料（收集），再把髒資料清乾淨（清理），接著找規律（探勘），最後才能建模型做預測。跳過清理直接分析，是新手最常犯的錯。"}, {"q": "下列哪一項「不屬於」資料清理的工作？", "options": ["刪除重複填寫的問卷", "把「台北市」和「臺北市」統一寫法", "處理明顯不合理的數值（例如身高 300 公分）", "把不符合自己預期的資料直接刪掉"], "answer": 3, "explain": "刪掉「不符合預期」的資料叫做<strong>資料造假<\/strong>，不是清理。清理只處理重複、格式不一致、明顯錯誤或缺漏的資料，而且要說明你做了什麼、為什麼。"}, {"q": "「班上考試成績好的同學，補習時數也比較長」——由這句話可以直接推論出什麼？", "options": ["補習一定會讓成績變好", "兩者之間有相關，但不能直接證明是補習「造成」成績好", "成績好會造成補習時數長", "兩者完全沒關係"], "answer": 1, "explain": "這是資料素養最重要的一課：<strong>相關 ≠ 因果<\/strong>。也可能是「本來就認真的同學，既會補習也會唸書」。做專題報告時，別把相關講成因果。"}]}, "q3": {"title": "第三節 隨堂測驗", "questions": [{"q": "「雲端運算」最貼切的說明是？", "options": ["把資料存在天空中的衛星上", "透過網際網路使用別人機房裡的運算與儲存服務，用多少付多少", "一種比較快的 Wi-Fi", "只有大公司才能使用的超級電腦"], "answer": 1, "explain": "「雲端」其實就是「網路另一端的別人家機房」。你不用自己買伺服器，需要多少資源就租多少——Google 雲端硬碟、Gmail、Google 簡報都是雲端服務。"}, {"q": "把作業存在 Google 雲端硬碟，相較於只存在電腦桌面，最主要的優點是？", "options": ["檔案會自動變小", "電腦壞掉或忘記帶隨身碟時，換一台裝置登入就能繼續做，且有版本紀錄", "不需要網路也能存取全部功能", "別人絕對看不到"], "answer": 1, "explain": "雲端的三大好處：跨裝置存取、自動備份、版本紀錄（可還原成上週的版本）。但它<strong>不等於安全<\/strong>——如果你把連結設成「知道連結的人都能編輯」，任何人都看得到。"}, {"q": "使用雲端服務時，下列哪一項風險最需要注意？", "options": ["雲端硬碟會讓電腦變慢", "分享設定沒設好，把不該公開的檔案設成「所有人可存取」", "雲端檔案不能列印", "雲端只能存文字"], "answer": 1, "explain": "雲端外洩事件中，很大一部分不是被駭客攻破，而是使用者自己把分享權限設成公開。繳交作業時請設「特定人士」或「知道連結的人可以檢視」，不要給「編輯」權限。"}]}, "q4": {"title": "第四節 隨堂測驗", "questions": [{"q": "在 Google 試算表中，要計算 B2 到 B21 這 20 個數字的平均，正確的函式是？", "options": ["=SUM(B2:B21)", "=AVERAGE(B2:B21)", "=COUNT(B2:B21)", "=MAX(B2:B21)"], "answer": 1, "explain": "AVERAGE 求平均、SUM 求總和、COUNT 數個數、MAX／MIN 找最大最小。這四個是資料分析最常用的入門函式，第 3 週實作會全部用到。"}, {"q": "要在 Google My Maps 上呈現「我家到學校沿路的五個地標」，最合適的做法是？", "options": ["把五個地點截圖貼進簡報", "在 My Maps 新增圖層，逐一加入標記並填寫名稱、說明與照片", "在小畫家上手繪地圖", "直接用 Google 搜尋五個地名"], "answer": 1, "explain": "My Maps 可以自訂圖層與標記，每個標記能加標題、描述、照片，還能匯出分享或嵌入網頁。這正是「把資料放到地圖上說故事」的最簡單方式。"}, {"q": "要讓一份 Google 簡報「全班同組的人都能一起編輯」，正確的分享設定是？", "options": ["設為「限制存取」，只有自己看得到", "把組員加入為「編輯者」，或設定校內連結可編輯", "設為「網際網路上的任何人都可以編輯」", "把檔案下載後用 email 互傳"], "answer": 1, "explain": "正確做法是明確加入組員為編輯者。設成「網路上任何人可編輯」風險太高（任何人都能刪光你的作業）；互傳檔案則會產生一堆版本，失去共編的意義。"}]}};</script>
+</head>
+<body>
+
+<!-- 進度條 -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- 頂部導覽列 -->
+<div id="topbar">
+  <span class="tb-title" id="tb-chapter">AI 時代的數位創作者</span>
+  <span class="tb-counter" id="tb-counter">1 / 22</span>
+  <button id="btn-toc" onclick="toggleToc()">目錄 ☰</button>
+</div>
+
+<!-- 投影片主體 -->
+<div id="slide-wrap">
+  <div id="slide-frame" class="bg-navy"></div>
+</div>
+
+<!-- 底部導覽 -->
+<div id="nav-bar">
+  <button class="nav-btn" id="btn-prev" onclick="prevSlide()" disabled>← 上一頁</button>
+  <div id="slide-dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="nextSlide()">下一頁 →</button>
+</div>
+
+<!-- TOC 側邊欄 -->
+<div id="toc">
+  <h3>📑 課程目錄</h3>
+  <div id="toc-list"></div>
+</div>
+
+<!-- 測驗 Modal -->
+<div id="quiz-overlay">
+  <div id="quiz-box">
+    <div id="quiz-header">
+      <h3 id="quiz-title">測驗</h3>
+      <span class="qh-score" id="quiz-score-preview"></span>
+    </div>
+    <div id="quiz-body"></div>
+    <div id="quiz-footer">
+      <span class="qf-score" id="quiz-result"></span>
+      <div style="display:flex;gap:10px">
+        <button id="btn-submit-quiz" onclick="submitQuiz()">送出答案</button>
+        <button id="btn-close-quiz" onclick="closeQuiz()">繼續學習 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  從 Jinja2 模板取得 Flask 傳入的資料
+// ════════════════════════════════════════════════════════════
+const TOTAL_SLIDES = 22;
+const CHAPTERS_DATA = [{"name": "\u5c01\u9762", "start": 1}, {"name": "\u7b2c\u4e00\u7bc0\uff1a\u8cc7\u6599\u8b8a\u6210\u5927\u6578\u64da", "start": 2}, {"name": "\u7b2c\u4e8c\u7bc0\uff1a\u8cc7\u6599\u79d1\u5b78\u56db\u6b65\u9a5f", "start": 7}, {"name": "\u7b2c\u4e09\u7bc0\uff1a\u96f2\u7aef\u904b\u7b97", "start": 11}, {"name": "\u7b2c\u56db\u7bc0\uff1aGoogle \u5de5\u5177\u7d44\u5be6\u4f5c", "start": 16}, {"name": "\u8ab2\u5802\u5be6\u4f5c", "start": 21}];
+
+// ════════════════════════════════════════════════════════════
+//  全域狀態
+// ════════════════════════════════════════════════════════════
+let slides = [];
+let quizzes = {};
+let cur = 0;
+let answered = {};
+let tocVisible = true;
+const chartInstances = {};
+
+// ════════════════════════════════════════════════════════════
+//  初始化：從 Flask API 取得資料
+// ════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const [slidesRes, quizzesRes] = await Promise.all([
+      Promise.resolve({json:()=>window.__SLIDES__}),
+      Promise.resolve({json:()=>window.__QUIZZES__})
+    ]);
+    slides = await slidesRes.json();
+    quizzes = await quizzesRes.json();
+    buildToc();
+    buildDots();
+    goTo(0);
+  } catch (e) {
+    console.error('資料載入失敗：', e);
+    document.getElementById('slide-frame').innerHTML =
+      "<div style='color:red;padding:20px'>❌ 請確認 Flask 伺服器已啟動！<br><code>python app.py</code></div>";
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立目錄（TOC）
+// ════════════════════════════════════════════════════════════
+function buildToc() {
+  const list = document.getElementById('toc-list');
+  let lastChapter = '';
+  slides.forEach((s, i) => {
+    if (s.chapter !== lastChapter) {
+      const ch = document.createElement('div');
+      ch.className = 'toc-chapter';
+      ch.textContent = s.chapter;
+      list.appendChild(ch);
+      lastChapter = s.chapter;
+    }
+    const item = document.createElement('div');
+    item.className = 'toc-item';
+    item.id = `toc-${i}`;
+    item.textContent = `${s.id}. ${s.title}`;
+    item.onclick = () => goTo(i);
+    list.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立點狀導覽
+// ════════════════════════════════════════════════════════════
+function buildDots() {
+  const wrap = document.getElementById('slide-dots');
+  const step = Math.max(1, Math.floor(slides.length / 15));
+  slides.forEach((s, i) => {
+    if (i % step !== 0 && i !== slides.length - 1) return;
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    d.title = s.title;
+    d.onclick = () => goTo(i);
+    wrap.appendChild(d);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  前往特定投影片
+// ════════════════════════════════════════════════════════════
+function goTo(idx) {
+  if (idx < 0 || idx >= slides.length) return;
+  cur = idx;
+  const s = slides[cur];
+  const frame = document.getElementById('slide-frame');
+  frame.className = '';
+  frame.classList.add('bg-' + s.bg);
+  frame.style.opacity = '0';
+  frame.innerHTML = s.html;
+  setTimeout(() => { frame.style.opacity = '1'; }, 30);
+  frame.scrollTop = 0;
+  if (s.chart) setTimeout(() => renderChart(s.chart), 80);
+  if (s.video) setTimeout(() => renderVideo(s.id, s.video), 80);
+  updateNav();
+  updateToc();
+  updateProgress();
+}
+
+// ════════════════════════════════════════════════════════════
+//  導覽：下一頁（有測驗時先觸發測驗）
+// ════════════════════════════════════════════════════════════
+function nextSlide() {
+  const s = slides[cur];
+  if (s.quiz && !answered[s.quiz]) {
+    showQuiz(s.quiz);
+  } else {
+    goTo(cur + 1);
+  }
+}
+function prevSlide() { goTo(cur - 1); }
+
+// ════════════════════════════════════════════════════════════
+//  更新導覽列、進度條、TOC
+// ════════════════════════════════════════════════════════════
+function updateNav() {
+  document.getElementById('btn-prev').disabled = cur === 0;
+  const isLast = cur === slides.length - 1;
+  const hasUnansweredQuiz = slides[cur].quiz && !answered[slides[cur].quiz];
+  document.getElementById('btn-next').disabled = isLast && !hasUnansweredQuiz;
+  document.getElementById('tb-chapter').textContent = slides[cur].chapter + '：' + slides[cur].title;
+  document.getElementById('tb-counter').textContent = `${cur + 1} / ${slides.length}`;
+  document.querySelectorAll('.dot').forEach(d => {
+    d.classList.remove('active');
+    const i = parseInt(d.id.replace('dot-', ''));
+    if (cur === i) d.classList.add('active');
+    else if (cur > i) d.classList.add('done');
+    else d.classList.remove('done');
+  });
+}
+
+function updateProgress() {
+  const pct = ((cur + 1) / slides.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function updateToc() {
+  document.querySelectorAll('.toc-item').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === cur) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+    else if (i < cur) el.classList.add('done');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  切換 TOC 顯示
+// ════════════════════════════════════════════════════════════
+function toggleToc() {
+  tocVisible = !tocVisible;
+  document.getElementById('toc').classList.toggle('hidden', !tocVisible);
+  document.getElementById('slide-wrap').classList.toggle('toc-hidden', !tocVisible);
+  document.getElementById('nav-bar').classList.toggle('toc-hidden', !tocVisible);
+}
+
+// ════════════════════════════════════════════════════════════
+//  鍵盤快捷鍵
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+
+// ════════════════════════════════════════════════════════════
+//  影片渲染（YouTube 嵌入 / 搜尋按鈕 / 兩者兼具）
+//  嵌入使用 youtube-nocookie.com（不追蹤、不推薦其他影片、無個人化廣告）
+//  參數 rel=0（結束不推薦別家頻道）、modestbranding=1（隱藏 YT logo）
+// ════════════════════════════════════════════════════════════
+function _ytEmbedHtml(vid, title) {
+  // 使用 youtube-nocookie.com — YouTube 官方「隱私強化」網域，更乾淨
+  return `
+    <div class="video-embed">
+      <iframe src="https://www.youtube-nocookie.com/embed/${vid}?rel=0&modestbranding=1&iv_load_policy=3&fs=1"
+        allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        loading="lazy"></iframe>
+    </div>
+    <p style="text-align:center;font-size:.72rem;color:rgba(255,255,255,.55);margin-top:6px">▶ ${title}</p>`;
+}
+function _ytSearchHtml(query, title, desc) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  return `
+    <a href="${url}" target="_blank" class="video-search-btn">
+      <span class="yt-icon">▶️</span>
+      <span>
+        <strong>${title}</strong><br>
+        <small style="font-weight:400;opacity:.8">${desc}</small>
+      </span>
+    </a>`;
+}
+
+function renderVideo(slideId, video) {
+  const el = document.getElementById(`video-section-${slideId}`);
+  if (!el) return;
+  if (video.type === 'youtube') {
+    el.innerHTML = _ytEmbedHtml(video.id, video.title);
+  } else if (video.type === 'both') {
+    // 嵌入播放器 + 底下附「找不到？搜尋更多」備援
+    el.innerHTML = `
+      ${_ytEmbedHtml(video.id, video.title)}
+      <div style="margin-top:10px;">
+        ${_ytSearchHtml(video.query, video.search_title || '想看更多相關影片', video.desc || '在 YouTube 搜尋同主題其他教學')}
+      </div>`;
+  } else {
+    el.innerHTML = _ytSearchHtml(video.query, video.title, video.desc);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  圖表渲染（Chart.js，防止重複建立）
+// ════════════════════════════════════════════════════════════
+function renderChart(type) {
+  if (type === 'formats') {
+    const el = document.getElementById('chart-formats');
+    if (!el || chartInstances['formats']) return;
+    chartInstances['formats'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['JPEG（照片）', 'PNG（圖示）', 'PNG（截圖）', 'SVG（Logo）'],
+        datasets: [{
+          label: '典型檔案大小（KB）',
+          data: [150, 400, 1200, 8],
+          backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.raw} KB` } }
+        },
+        scales: {
+          y: {
+            type: 'logarithmic',
+            title: { display: true, text: '檔案大小 KB（對數刻度）', color:'#6b7280', font:{size:10} },
+            ticks: { color:'#6b7280', font:{size:10}, callback: v => v + ' KB' }
+          },
+          x: { ticks: { color:'#374151', font:{size:11} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+
+  if (type === 'ai_tools') {
+    const el = document.getElementById('chart-ai-tools');
+    if (!el || chartInstances['ai_tools']) return;
+    chartInstances['ai_tools'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['ChatGPT GPT-4o', 'Canva AI', 'Midjourney', 'Adobe Firefly'],
+        datasets: [
+          {
+            label: '圖像品質',
+            data: [4, 3, 5, 4],
+            backgroundColor: 'rgba(107,63,160,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '操作難易',
+            data: [5, 5, 2, 4],
+            backgroundColor: 'rgba(13,148,136,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '授權安全',
+            data: [3, 4, 3, 5],
+            backgroundColor: 'rgba(245,158,11,.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font:{size:10}, padding:8 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}：${'⭐'.repeat(ctx.raw)}` } }
+        },
+        scales: {
+          y: {
+            min: 0, max: 5,
+            ticks: { color:'#6b7280', font:{size:10}, stepSize: 1, callback: v => v + '⭐' }
+          },
+          x: { ticks: { color:'#374151', font:{size:10} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  測驗功能
+// ════════════════════════════════════════════════════════════
+let curQuizId = null;
+let quizUserAnswers = {};
+
+function showQuiz(qId) {
+  curQuizId = qId;
+  quizUserAnswers = {};
+  const q = quizzes[qId];
+  document.getElementById('quiz-title').textContent = q.title;
+  document.getElementById('quiz-score-preview').textContent = q.questions.length + ' 題';
+  document.getElementById('quiz-result').textContent = '';
+  document.getElementById('btn-submit-quiz').style.display = '';
+  document.getElementById('btn-close-quiz').style.display = 'none';
+
+  const body = document.getElementById('quiz-body');
+  body.innerHTML = '';
+  q.questions.forEach((question, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.innerHTML = `<div class="q-text">${qi+1}. ${question.q}</div>
+      <div class="q-options" id="opts-${qi}">
+        ${question.options.map((opt, oi) =>
+          `<div class="q-opt" id="opt-${qi}-${oi}" onclick="selectOpt(${qi},${oi})">${opt}</div>`
+        ).join('')}
+      </div>`;
+    body.appendChild(div);
+  });
+  document.getElementById('quiz-overlay').classList.add('show');
+}
+
+function selectOpt(qi, oi) {
+  quizUserAnswers[qi] = oi;
+  const q = quizzes[curQuizId];
+  for (let o = 0; o < q.questions[qi].options.length; o++) {
+    document.getElementById(`opt-${qi}-${o}`).classList.toggle('selected', o === oi);
+  }
+}
+
+function submitQuiz() {
+  const q = quizzes[curQuizId];
+  let correct = 0;
+  q.questions.forEach((question, qi) => {
+    const chosen = quizUserAnswers[qi];
+    const opts = document.getElementById(`opts-${qi}`);
+    for (let o = 0; o < question.options.length; o++) {
+      const el = document.getElementById(`opt-${qi}-${o}`);
+      el.onclick = null;
+      el.classList.remove('selected');
+      if (o === question.answer) el.classList.add('correct');
+      else if (o === chosen && chosen !== question.answer) el.classList.add('wrong');
+    }
+    if (!opts.querySelector('.q-exp')) {
+      const exp = document.createElement('div');
+      exp.className = 'q-exp';
+      exp.textContent = '💡 ' + question.explain;
+      opts.after(exp);
+    }
+    if (chosen === question.answer) correct++;
+  });
+  const pct = Math.round((correct / q.questions.length) * 100);
+  document.getElementById('quiz-result').textContent = `得分：${correct}/${q.questions.length}（${pct}%）`;
+  document.getElementById('btn-submit-quiz').style.display = 'none';
+  document.getElementById('btn-close-quiz').style.display = 'inline-block';
+  answered[curQuizId] = true;
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('show');
+  goTo(cur + 1);
+}
+
+// ════════════════════════════════════════════════════════════
+//  啟動
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
