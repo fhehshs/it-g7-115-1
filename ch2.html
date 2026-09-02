@@ -578,7 +578,7 @@ function submitQuiz() {
     if (!opts.querySelector('.q-exp')) {
       const exp = document.createElement('div');
       exp.className = 'q-exp';
-      exp.textContent = '💡 ' + question.explain;
+      exp.innerHTML = '💡 ' + question.explain;   // 解析內容中的 <strong> 等標記
       opts.after(exp);
     }
     if (chosen === question.answer) correct++;
