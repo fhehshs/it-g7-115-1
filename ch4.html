@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 時代的數位創作者 — 互動教學</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════
+   CSS 變數（全站顏色主題）
+   ══════════════════════════════════════ */
+:root {
+  --navy:#1E3A5F; --teal:#0D9488; --sage:#6B8F8F;
+  --purple:#6B3FA0; --gold:#F59E0B; --light:#F1F5F9; --white:#fff;
+  --text:#111827; --muted:#374151;
+  --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Noto Sans TC',sans-serif;background:#0f172a;color:var(--text);overflow:hidden;height:100vh}
+
+/* ═══ 進度條 ═══ */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));transition:width .4s;z-index:200}
+
+/* ═══ 頂部導覽 ═══ */
+#topbar{position:fixed;top:3px;left:0;right:0;height:48px;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+#topbar .tb-title{color:#fff;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .tb-counter{color:var(--gold);font-size:.8rem;white-space:nowrap}
+#btn-toc{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:.75rem;cursor:pointer}
+#btn-toc:hover{background:rgba(255,255,255,.1)}
+
+/* ═══ 投影片容器 ═══ */
+#slide-wrap{position:fixed;top:51px;left:280px;right:0;bottom:64px;overflow:hidden;transition:left .3s}
+#slide-wrap.toc-hidden{left:0}
+#slide-frame{width:100%;height:100%;padding:20px 24px;overflow-y:auto;transition:opacity .2s}
+
+/* ═══ 投影片背景 ═══ */
+.bg-navy{background:linear-gradient(135deg,#1E3A5F 0%,#0f2340 100%)}
+.bg-teal{background:linear-gradient(135deg,#0D9488 0%,#065f46 100%)}
+.bg-sage{background:linear-gradient(135deg,#6B8F8F 0%,#4a6b6b 100%)}
+.bg-purple{background:linear-gradient(135deg,#6B3FA0 0%,#3b1f6b 100%)}
+.bg-white{background:#f8fafc}
+
+/* ═══ 底部導覽按鈕 ═══ */
+#nav-bar{position:fixed;bottom:0;left:280px;right:0;height:64px;background:rgba(15,23,42,.95);display:flex;align-items:center;justify-content:center;gap:16px;transition:left .3s;z-index:100}
+#nav-bar.toc-hidden{left:0}
+.nav-btn{background:var(--purple);color:#fff;border:none;padding:10px 28px;border-radius:24px;font-size:.9rem;cursor:pointer;font-weight:600;transition:all .2s}
+.nav-btn:hover{background:#5a3290;transform:translateY(-1px)}
+.nav-btn:disabled{background:#334155;cursor:not-allowed;transform:none}
+#slide-dots{display:flex;gap:6px;align-items:center;max-width:300px;flex-wrap:wrap;justify-content:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#334155;cursor:pointer;transition:all .2s}
+.dot.active{background:var(--gold);transform:scale(1.3)}
+.dot.done{background:var(--teal)}
+
+/* ═══ TOC 側邊欄 ═══ */
+#toc{position:fixed;top:51px;left:0;width:280px;bottom:0;background:#0f172a;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;z-index:50;transition:transform .3s}
+#toc.hidden{transform:translateX(-100%)}
+#toc h3{padding:14px 16px 10px;color:var(--gold);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,.06)}
+.toc-item{padding:7px 16px;font-size:.78rem;color:#cbd5e1;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc-item:hover{color:#fff;background:rgba(255,255,255,.05)}
+.toc-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(245,158,11,.08)}
+.toc-item.done{color:var(--teal)}
+.toc-chapter{padding:8px 16px 4px;font-size:.7rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ═══ 封面樣式 ═══ */
+.cover-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 130px);text-align:center;padding:20px}
+.cover-badge{background:rgba(107,63,160,.3);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:.8rem;letter-spacing:.08em;margin-bottom:20px;border:1px solid rgba(107,63,160,.4)}
+.cover-title{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
+.cover-sub{font-size:clamp(.9rem,1.5vw,1.1rem);color:#94a3b8;margin-bottom:24px;max-width:500px}
+.cover-tags{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px}
+.tag{background:rgba(255,255,255,.1);color:#cbd5e1;padding:5px 14px;border-radius:14px;font-size:.78rem;border:1px solid rgba(255,255,255,.15)}
+.cover-meta{font-size:.75rem;color:#475569}
+
+/* ═══ 投影片通用 ═══ */
+.slide-inner{padding:8px 4px}
+.slide-title{font-size:clamp(1.1rem,2.2vw,1.5rem);font-weight:700;margin-bottom:12px;color:var(--text)}
+.slide-desc{font-size:.88rem;color:var(--muted);margin-bottom:14px}
+.slide-note{font-size:.82rem;color:var(--muted);margin-top:12px;padding:8px 12px;background:rgba(0,0,0,.05);border-radius:8px}
+.tip-box{background:linear-gradient(135deg,rgba(107,63,160,.1),rgba(30,58,95,.1));border:1px solid rgba(107,63,160,.25);border-radius:10px;padding:12px 16px;font-size:.83rem;color:var(--text);margin-top:12px;line-height:1.6}
+
+/* ═══ 卡片格 ═══ */
+.card-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.card-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.info-card{background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.15)}
+.card-icon{font-size:1.6rem;margin-bottom:6px}
+.card-label{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:4px}
+.card-desc{font-size:.72rem;color:rgba(255,255,255,.92);line-height:1.4}
+
+/* ═══ 位元視覺 ═══ */
+.bit-demo{background:rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.bit-box{padding:8px 16px;border-radius:10px;font-weight:700;font-size:.9rem;text-align:center}
+.bit-off{background:rgba(239,68,68,.25);border:2px solid rgba(239,68,68,.5);color:#fca5a5}
+.bit-on{background:rgba(34,197,94,.25);border:2px solid rgba(34,197,94,.5);color:#86efac}
+
+/* ═══ 平台表格 ═══ */
+.platform-table{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:10px}
+.pt-header{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;background:var(--navy);color:#fff;padding:8px 12px;font-size:.75rem;font-weight:600;gap:8px}
+.pt-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;padding:8px 12px;font-size:.78rem;gap:8px;border-top:1px solid #f1f5f9;align-items:center}
+.pt-row:nth-child(even){background:#f8fafc}
+.pt-name{font-weight:600;color:var(--navy)}
+
+/* ═══ 四層架構 ═══ */
+.layer-stack{display:flex;flex-direction:column;gap:2px;margin:8px 0}
+.layer{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15)}
+.layer-hw{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.6);border-width:2px}
+.layer-os{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.6);border-width:2px}
+.layer-app{background:rgba(13,148,136,.12);border-color:rgba(13,148,136,.6);border-width:2px}
+.layer-user{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.6);border-width:2px}
+.layer-num{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.18);color:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.layer-name{font-weight:700;font-size:.88rem;color:#1e293b;margin-bottom:2px}
+.layer-detail{font-size:.75rem;color:#475569}
+.layer-arrow{text-align:center;color:#64748b;font-size:.9rem;margin:-4px 0}
+
+/* ═══ 儲存單位 ═══ */
+.units-grid{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.unit-row{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0}
+.unit-small{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
+.unit-large{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+.unit-name{font-size:.82rem;font-weight:700;color:#1e293b;min-width:150px}
+.unit-eq{font-size:.78rem;color:#475569}
+
+/* ═══ 資料表格 ═══ */
+.info-table{width:100%;border-collapse:collapse;font-size:.8rem;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+.info-table th,.info-table td{padding:8px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+.table-header{background:var(--navy);color:#fff}
+.table-header th{color:#fff;font-weight:600;font-size:.78rem;padding:9px 12px}
+.tr-highlight{background:rgba(13,148,136,.08)}
+.info-table tr:last-child td{border-bottom:none}
+.td-center{text-align:center}
+
+/* ═══ 功能卡片 ═══ */
+.func-card{display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0}
+.fc-num{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.fc-title{font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:3px}
+.fc-desc{font-size:.75rem;color:var(--muted);line-height:1.4}
+
+/* ═══ Fact Box ═══ */
+.fact-box{background:rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px}
+.fact-box p{font-size:.8rem;color:rgba(255,255,255,.95);margin-bottom:6px;line-height:1.5}
+
+/* ═══ 圖表 ═══ */
+.chart-wrap-full{width:100%;margin-bottom:10px}
+
+/* ═══ 作業 ═══ */
+.task-single{background:rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;border:1px solid rgba(255,255,255,.15);margin-bottom:14px}
+.task-title{font-size:.82rem;font-weight:700;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.task-item{font-size:.78rem;color:rgba(255,255,255,.8);margin-bottom:7px;padding-left:4px;line-height:1.4}
+.submit-box{display:flex;align-items:center;gap:14px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.4);border-radius:12px;padding:14px 16px}
+.submit-icon{font-size:2rem;flex-shrink:0}
+.submit-title{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:4px}
+.submit-desc{font-size:.78rem;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ═══ 影片區塊 ═══ */
+.video-section{margin:10px 0}
+.video-embed{border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9;width:100%;max-width:560px;margin:0 auto}
+.video-embed iframe{width:100%;height:100%;border:none;display:block}
+.video-search-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:600;transition:all .2s;width:fit-content;margin:0 auto}
+.video-search-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(220,38,38,.4)}
+.video-search-btn .yt-icon{font-size:1.2rem}
+
+/* ═══ 測驗 Modal ═══ */
+#quiz-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+#quiz-overlay.show{display:flex}
+#quiz-box{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#quiz-header{background:var(--purple);color:#fff;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
+#quiz-header h3{font-size:.95rem;font-weight:700}
+#quiz-header .qh-score{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:12px;font-size:.78rem}
+#quiz-body{padding:16px 20px;overflow-y:auto;flex:1}
+.quiz-q{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f1f5f9}
+.quiz-q:last-child{border-bottom:none}
+.q-text{font-size:.9rem;font-weight:600;color:var(--navy);margin-bottom:10px;line-height:1.4}
+.q-options{display:flex;flex-direction:column;gap:7px}
+.q-opt{padding:9px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:.82rem;transition:all .15s;line-height:1.3}
+.q-opt:hover{border-color:var(--purple);background:#faf5ff}
+.q-opt.selected{border-color:var(--navy);background:rgba(30,58,95,.05)}
+.q-opt.correct{border-color:#10b981;background:#f0fdf4;color:#065f46}
+.q-opt.wrong{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.q-exp{font-size:.78rem;color:#374151;background:#f8fafc;padding:8px 12px;border-radius:8px;margin-top:8px;border-left:3px solid var(--purple);line-height:1.5}
+#quiz-footer{padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;border-radius:0 0 16px 16px}
+#quiz-footer .qf-score{font-size:.88rem;font-weight:600;color:var(--navy)}
+#btn-submit-quiz,#btn-close-quiz{padding:8px 20px;border-radius:10px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s}
+#btn-submit-quiz{background:var(--navy);color:#fff}
+#btn-submit-quiz:hover{background:#0f2340}
+#btn-close-quiz{background:var(--purple);color:#fff;display:none}
+#btn-close-quiz:hover{background:#5a3290}
+</style>
+<script>window.__SLIDES__=[{"id": 1, "chapter": "封面", "title": "個人資料保護與數位足跡", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:24px 20px;'>\n  <div style='font-size:66px;margin-bottom:14px;'>🔒<\/div>\n  <h1 style='font-size:2.5rem;font-weight:900;color:#fff;margin-bottom:10px;'>個人資料保護與數位足跡<\/h1>\n  <h2 style='font-size:1.2rem;font-weight:400;color:#93c5fd;margin-bottom:22px;'>Personal Data Protection &amp; Digital Footprint<\/h2>\n  <p style='color:#fbbf24;font-size:1.02rem;font-style:italic;margin-bottom:20px;'>「你的資料，你要守護」<\/p>\n  <div style='display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;'>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>📜 個資法<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>👣 數位足跡<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>⚙️ 隱私設定<\/span>\n  <\/div>\n  <p style='color:#bfdbfe;font-size:1.05rem;'>七年級第一學期 ｜ 第 4 週<\/p>\n<\/div>"}, {"id": 2, "chapter": "第一節：什麼是個人資料", "title": "什麼是個人資料", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📜 什麼是「個人資料」？<\/h2>\n<div style='background:#f1f5f9;border-radius:10px;padding:13px 16px;margin-bottom:12px;border-left:4px solid #0d9488;'>\n  <p style='color:#0f172a;font-size:.91rem;margin:0;line-height:1.9;'>\n    📖 依《個人資料保護法》，個人資料是指<strong>可以直接或間接識別出特定自然人<\/strong>的資料。<br>\n    <span style='color:#475569;font-size:.85rem;'>關鍵不在於「有沒有寫名字」，而在於「<strong>能不能拼湊出是誰<\/strong>」。<\/span><\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:12px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.4rem;'>🪪<\/div><strong style='color:#1e40af;font-size:.82rem;'>身分類<\/strong>\n    <p style='font-size:.73rem;color:#475569;margin-top:4px;'>姓名、身分證字號、學號<\/p><\/div>\n  <div style='background:#f0fdf4;padding:12px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.4rem;'>📞<\/div><strong style='color:#166534;font-size:.82rem;'>聯絡類<\/strong>\n    <p style='font-size:.73rem;color:#475569;margin-top:4px;'>電話、地址、Email<\/p><\/div>\n  <div style='background:#fefce8;padding:12px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.4rem;'>📷<\/div><strong style='color:#854d0e;font-size:.82rem;'>影像特徵類<\/strong>\n    <p style='font-size:.73rem;color:#475569;margin-top:4px;'>照片、指紋、聲紋、臉部<\/p><\/div>\n  <div style='background:#f5f3ff;padding:12px;border-radius:10px;text-align:center;'>\n    <div style='font-size:1.4rem;'>📍<\/div><strong style='color:#5b21b6;font-size:.82rem;'>行為軌跡類<\/strong>\n    <p style='font-size:.73rem;color:#475569;margin-top:4px;'>位置、消費、上網紀錄<\/p><\/div>\n<\/div>\n<div style='background:#fef2f2;padding:12px 16px;border-radius:8px;border-left:4px solid #dc2626;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ⚠️ <strong>特種個人資料<\/strong>（個資法第 6 條）：<strong>病歷、醫療、基因、性生活、健康檢查、犯罪前科<\/strong>。這些原則上<strong>不得蒐集、處理或利用<\/strong>，只有在法律明文允許等特定情形下才可以，保護標準比一般個資更嚴格。<\/p>\n<\/div>"}, {"id": 3, "chapter": "第一節：什麼是個人資料", "title": "你的五項權利", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>⚖️ 個資法給你的五項權利<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:14px;border-radius:11px;'>\n    <div style='background:#2563eb;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>1<\/div>\n    <strong style='color:#1e40af;font-size:.88rem;'>查詢或閱覽<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>問對方：「你手上有我的哪些資料？」<\/p><\/div>\n  <div style='background:#f0fdf4;padding:14px;border-radius:11px;'>\n    <div style='background:#16a34a;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>2<\/div>\n    <strong style='color:#166534;font-size:.88rem;'>製給複製本<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>要求對方提供一份你的資料副本<\/p><\/div>\n  <div style='background:#fefce8;padding:14px;border-radius:11px;'>\n    <div style='background:#eab308;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>3<\/div>\n    <strong style='color:#854d0e;font-size:.88rem;'>補充或更正<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>資料寫錯了，你可以要求改<\/p><\/div>\n  <div style='background:#f5f3ff;padding:14px;border-radius:11px;'>\n    <div style='background:#7c3aed;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>4<\/div>\n    <strong style='color:#5b21b6;font-size:.88rem;'>停止蒐集處理利用<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>例如：拒絕行銷簡訊繼續寄給你<\/p><\/div>\n  <div style='background:#fef2f2;padding:14px;border-radius:11px;'>\n    <div style='background:#dc2626;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>5<\/div>\n    <strong style='color:#991b1b;font-size:.88rem;'>請求刪除<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>要求對方把你的資料刪掉<\/p><\/div>\n  <div style='background:#ecfdf5;padding:14px;border-radius:11px;display:flex;align-items:center;'>\n    <p style='font-size:.79rem;color:#065f46;margin:0;line-height:1.7;'><strong>🔒 這五項權利<br>不得預先拋棄<\/strong><br><span style='font-size:.73rem;color:#475569;'>也不能用契約限制<\/span><\/p><\/div>\n<\/div>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🏛️ 台灣目前正在籌設<strong>個人資料保護委員會<\/strong>（現為「籌備處」），未來將作為統一的獨立監督機關。在此之前，個資爭議可先向<strong>該項業務的主管機關<\/strong>或原蒐集單位反映。<\/p>\n<\/div>"}, {"id": 4, "chapter": "第一節：什麼是個人資料", "title": "個資外洩的連鎖反應", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>💥 個資外洩──然後呢？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <div style='display:flex;align-items:center;gap:9px;flex-wrap:wrap;'>\n    <div style='background:rgba(59,130,246,.22);border-radius:10px;padding:12px 14px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.4rem;'>📋<\/div>\n      <p style='color:#93c5fd;font-size:.79rem;margin:4px 0 0;'>姓名、電話、地址被不當取得<\/p><\/div>\n    <span style='color:#f59e0b;font-size:1.2rem;'>&#8594;<\/span>\n    <div style='background:rgba(245,158,11,.22);border-radius:10px;padding:12px 14px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.4rem;'>📞<\/div>\n      <p style='color:#fcd34d;font-size:.79rem;margin:4px 0 0;'>精準詐騙：對方講得出你的訂單與班級<\/p><\/div>\n    <span style='color:#f59e0b;font-size:1.2rem;'>&#8594;<\/span>\n    <div style='background:rgba(220,38,38,.25);border-radius:10px;padding:12px 14px;flex:1;min-width:120px;text-align:center;'>\n      <div style='font-size:1.4rem;'>👤<\/div>\n      <p style='color:#fca5a5;font-size:.79rem;margin:4px 0 0;'>身分盜用：有人冒你的名義註冊、借貸、犯罪<\/p><\/div>\n  <\/div>\n  <p style='color:#94a3b8;font-size:.82rem;margin-top:14px;'>💡 為什麼詐騙電話越來越像真的？因為對方手上真的有你的資料。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;'>\n  <div style='background:#fef2f2;border-radius:10px;padding:13px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>🕐 個資外洩的特性<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'><strong>無法收回<\/strong>。密碼外洩可以改密碼，但身分證字號、生日、指紋<strong>一輩子只有一組<\/strong>，洩漏了就永遠在外面。<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>🛡️ 所以最好的策略是<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'><strong>能不給就不給<\/strong>。填任何表單前先問：這個欄位真的必要嗎？網路抽獎需要知道我的身分證字號嗎？<\/p><\/div>\n<\/div>"}, {"id": 5, "chapter": "第一節：什麼是個人資料", "title": "你的個資值多少", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>💰 為什麼那麼多 App 是「免費」的？<\/h2>\n<div style='background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:12px;padding:18px;margin-bottom:12px;text-align:center;'>\n  <p style='color:#fff;font-size:1.15rem;font-weight:800;margin:0;'>「如果你沒有付錢買產品，那你可能就是產品。」<\/p>\n  <p style='color:#e9d5ff;font-size:.82rem;margin-top:8px;'>—— 網路上流傳已久的一句話，用來描述免費服務的商業模式<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px;'>\n  <div style='background:#eff6ff;border-radius:11px;padding:14px;'>\n    <strong style='color:#1e40af;font-size:.9rem;'>💡 免費 App 怎麼賺錢？<\/strong>\n    <ul style='color:#334155;font-size:.8rem;line-height:1.85;padding-left:18px;margin:6px 0 0;'>\n      <li>投放廣告，並用你的資料讓廣告更精準<\/li>\n      <li>分析使用行為，賣給廣告主或資料商<\/li>\n      <li>用免費版養成習慣，再推付費升級<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#f0fdf4;border-radius:11px;padding:14px;'>\n    <strong style='color:#166534;font-size:.9rem;'>🤔 這不一定是壞事，但你要知道<\/strong>\n    <ul style='color:#334155;font-size:.8rem;line-height:1.85;padding-left:18px;margin:6px 0 0;'>\n      <li>你付出的「代價」是資料，不是錢<\/li>\n      <li>你有權知道它蒐集了什麼、怎麼用<\/li>\n      <li>你可以在設定裡限縮它能拿到的東西<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🔍 <strong>試試看<\/strong>：打開一個你常用的 App，找到「隱私權政策」，用 Ctrl+F 搜尋「第三方」或「分享」。你會發現，同意條款時你答應了很多你不知道的事。<\/p>\n<\/div>"}, {"id": 6, "chapter": "第一節：什麼是個人資料", "title": "第一節 隨堂測驗", "bg": "purple", "quiz": "q1", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第一節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>個人資料與個資法 ｜ 3 題<\/p>\n<\/div>"}, {"id": 7, "chapter": "第二節：數位足跡與演算法", "title": "數位足跡", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>👣 數位足跡：你以為沒人在看<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;border-top:5px solid #2563eb;'>\n    <h3 style='color:#1e40af;font-size:1rem;margin-bottom:6px;'>主動足跡<\/h3>\n    <p style='font-size:.77rem;color:#64748b;margin-bottom:7px;'>你自己按下「送出」的<\/p>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.85;padding-left:18px;margin:0;'>\n      <li>貼文、限動、留言、按讚<\/li>\n      <li>上傳的照片與影片（含定位資訊）<\/li>\n      <li>註冊網站時填的個人資料<\/li>\n      <li>公開的遊戲暱稱與戰績<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-top:5px solid #dc2626;'>\n    <h3 style='color:#991b1b;font-size:1rem;margin-bottom:6px;'>被動足跡<\/h3>\n    <p style='font-size:.77rem;color:#64748b;margin-bottom:7px;'>你沒察覺，系統默默記下的<\/p>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.85;padding-left:18px;margin:0;'>\n      <li>搜尋關鍵字、瀏覽紀錄、Cookie<\/li>\n      <li>影片看到第幾秒滑掉、停留多久<\/li>\n      <li>手機定位、連過哪些 Wi-Fi<\/li>\n      <li>裝置型號、IP 位址、使用時段<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#1e293b;border-radius:10px;padding:14px 18px;margin-bottom:10px;'>\n  <p style='color:#e2e8f0;font-size:.87rem;margin:0;line-height:1.9;'>\n    📸 <strong style='color:#fbbf24;'>照片裡藏著什麼？<\/strong>手機拍的照片會附帶 <strong>EXIF 資訊<\/strong>：拍攝時間、機型，有時還有<strong>GPS 座標<\/strong>。如果你把原始檔直接上傳，等於同時告訴別人你當時在哪裡。<br>\n    <span style='color:#94a3b8;font-size:.82rem;'>（多數社群平台上傳時會移除定位，但用通訊軟體傳「原始檔」通常會保留。）<\/span><\/p>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🔎 <strong>自我搜尋<\/strong>：用 Google 搜尋自己的名字＋學校、或你的遊戲暱稱，看看網路上找得到你的什麼。這是資安人員的基本功，也是今天的作業之一。<\/p>\n<\/div>"}, {"id": 8, "chapter": "第二節：數位足跡與演算法", "title": "演算法怎麼認識你", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎯 演算法怎麼「認識」你？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <div style='display:flex;align-items:center;gap:9px;flex-wrap:wrap;'>\n    <div style='background:rgba(59,130,246,.2);border-radius:9px;padding:11px 13px;flex:1;min-width:110px;text-align:center;'>\n      <p style='color:#93c5fd;font-size:.79rem;margin:0;'><strong>①<\/strong> 記錄你的每一個動作<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(13,148,136,.2);border-radius:9px;padding:11px 13px;flex:1;min-width:110px;text-align:center;'>\n      <p style='color:#5eead4;font-size:.79rem;margin:0;'><strong>②<\/strong> 找出和你行為相似的一群人<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(168,85,247,.2);border-radius:9px;padding:11px 13px;flex:1;min-width:110px;text-align:center;'>\n      <p style='color:#d8b4fe;font-size:.79rem;margin:0;'><strong>③<\/strong> 推薦「那群人也喜歡」的內容<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(245,158,11,.2);border-radius:9px;padding:11px 13px;flex:1;min-width:110px;text-align:center;'>\n      <p style='color:#fcd34d;font-size:.79rem;margin:0;'><strong>④<\/strong> 你停留更久 → 它更懂你<\/p><\/div>\n  <\/div>\n  <p style='color:#94a3b8;font-size:.82rem;margin-top:13px;'>⚠️ 注意它的<strong>目標<\/strong>：不是「讓你獲得正確的資訊」，而是「<strong>讓你停留更久<\/strong>」——因為停留時間可以換成廣告收入。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;'>\n  <div style='background:#fef2f2;border-radius:11px;padding:14px;'>\n    <strong style='color:#991b1b;font-size:.9rem;'>🫧 同溫層／過濾氣泡<\/strong>\n    <p style='font-size:.8rem;color:#475569;margin-top:5px;line-height:1.75;'>你越常點某一類內容，它就餵你越多同類的。久了你會以為「全世界都這樣想」，其實只是<strong>你的推薦清單這樣想<\/strong>。<\/p><\/div>\n  <div style='background:#fff7ed;border-radius:11px;padding:14px;'>\n    <strong style='color:#9a3412;font-size:.9rem;'>📱 為什麼停不下來？<\/strong>\n    <p style='font-size:.8rem;color:#475569;margin-top:5px;line-height:1.75;'>無限捲動、自動播放、紅點通知——這些設計都是為了讓你「再看一個就好」。<strong>不是你自制力差，是它被設計成這樣。<\/strong><\/p><\/div>\n<\/div>"}, {"id": 9, "chapter": "第二節：數位足跡與演算法", "title": "奪回主導權", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎮 你是在用手機，還是手機在用你？<\/h2>\n<div style='background:#fef3c7;border-radius:11px;padding:14px 17px;margin-bottom:12px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.9rem;margin:0;line-height:1.85;'>\n    🤔 <strong>回想昨天<\/strong>：你有沒有過「明明只是想看一下，結果過了一小時」的經驗？那一小時裡，你看的內容是<strong>你主動選的<\/strong>，還是<strong>被推薦引導的<\/strong>？<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;padding:14px;border-radius:11px;'>\n    <strong style='color:#166534;font-size:.89rem;'>⚙️ 調整設定<\/strong>\n    <ul style='color:#475569;font-size:.78rem;line-height:1.8;padding-left:16px;margin:6px 0 0;'>\n      <li>關掉自動播放<\/li>\n      <li>關掉不必要的通知<\/li>\n      <li>使用螢幕使用時間限制<\/li>\n    <\/ul><\/div>\n  <div style='background:#eff6ff;padding:14px;border-radius:11px;'>\n    <strong style='color:#1e40af;font-size:.89rem;'>🧭 主動選擇<\/strong>\n    <ul style='color:#475569;font-size:.78rem;line-height:1.8;padding-left:16px;margin:6px 0 0;'>\n      <li>打開 App 前先想「我要做什麼」<\/li>\n      <li>主動追蹤不同觀點的來源<\/li>\n      <li>定期清理搜尋與觀看紀錄<\/li>\n    <\/ul><\/div>\n  <div style='background:#f5f3ff;padding:14px;border-radius:11px;'>\n    <strong style='color:#5b21b6;font-size:.89rem;'>🧠 保持覺察<\/strong>\n    <ul style='color:#475569;font-size:.78rem;line-height:1.8;padding-left:16px;margin:6px 0 0;'>\n      <li>「推薦」不等於「事實」或「重要」<\/li>\n      <li>越讓你生氣的內容，越可能是為了流量<\/li>\n      <li>睡前把手機放到房間外<\/li>\n    <\/ul><\/div>\n<\/div>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    💚 <strong>老師想說的<\/strong>：這不是要你不要用手機。科技很好用，也很好玩。重點是<strong>你要知道它是怎麼運作的<\/strong>——知道之後，選擇權才真的在你手上。<br>\n    <span style='color:#64748b;font-size:.83rem;'>如果你覺得自己已經很難停下來、影響到睡眠或心情，那不是你的錯，可以找家人、老師或輔導老師聊聊。<\/span><\/p>\n<\/div>"}, {"id": 10, "chapter": "第二節：數位足跡與演算法", "title": "網路不會忘記", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>🌐 網路不會忘記<\/h2>\n<div style='background:rgba(255,255,255,.12);border-radius:12px;padding:17px;margin-bottom:12px;'>\n  <p style='color:#f0fdfa;font-size:.92rem;margin:0 0 10px;line-height:1.9;'>\n    你按下「送出」的那一瞬間，內容就<strong>可能<\/strong>已經被：<\/p>\n  <div style='display:grid;grid-template-columns:repeat(4,1fr);gap:9px;'>\n    <div style='background:rgba(255,255,255,.13);border-radius:9px;padding:11px;text-align:center;'>\n      <div style='font-size:1.3rem;'>📸<\/div><p style='color:#ccfbf1;font-size:.77rem;margin:4px 0 0;'>別人截圖<\/p><\/div>\n    <div style='background:rgba(255,255,255,.13);border-radius:9px;padding:11px;text-align:center;'>\n      <div style='font-size:1.3rem;'>🔁<\/div><p style='color:#ccfbf1;font-size:.77rem;margin:4px 0 0;'>轉發到別的群組<\/p><\/div>\n    <div style='background:rgba(255,255,255,.13);border-radius:9px;padding:11px;text-align:center;'>\n      <div style='font-size:1.3rem;'>🗄️<\/div><p style='color:#ccfbf1;font-size:.77rem;margin:4px 0 0;'>網頁存檔服務保存<\/p><\/div>\n    <div style='background:rgba(255,255,255,.13);border-radius:9px;padding:11px;text-align:center;'>\n      <div style='font-size:1.3rem;'>🔍<\/div><p style='color:#ccfbf1;font-size:.77rem;margin:4px 0 0;'>被搜尋引擎收錄<\/p><\/div>\n  <\/div>\n  <p style='color:#a7f3d0;font-size:.85rem;margin-top:12px;'>所以「刪除」通常只是把它從你的頁面上移除，<strong>不等於從網路上消失<\/strong>。<\/p>\n<\/div>\n<div style='background:rgba(0,0,0,.22);border-radius:9px;padding:14px 18px;'>\n  <p style='color:#fff;font-size:.95rem;font-weight:700;margin:0 0 8px;'>🛑 發布前的三個提問<\/p>\n  <p style='color:#f0fdfa;font-size:.87rem;margin:0;line-height:1.95;'>\n    ① 如果<strong>爸媽、老師、未來的老闆<\/strong>看到這則貼文，我 OK 嗎？<br>\n    ② 這裡面有沒有<strong>別人的<\/strong>資訊或影像？我問過他了嗎？<br>\n    ③ <strong>十年後<\/strong>的我，會希望這則貼文還在嗎？<\/p>\n<\/div>"}, {"id": 11, "chapter": "第二節：數位足跡與演算法", "title": "第二節 隨堂測驗", "bg": "purple", "quiz": "q2", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第二節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>數位足跡與演算法 ｜ 3 題<\/p>\n<\/div>"}, {"id": 12, "chapter": "第三節：手機與帳號的隱私設定", "title": "App 權限管理", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📱 App 權限管理：它真的需要這個嗎？<\/h2>\n<div style='background:#f1f5f9;border-radius:10px;padding:12px 16px;margin-bottom:12px;border-left:4px solid #0d9488;'>\n  <p style='color:#0f172a;font-size:.9rem;margin:0;'>🔑 <strong>判斷原則<\/strong>：這個權限<strong>和 App 的核心功能有關嗎<\/strong>？無關就拒絕。<\/p>\n<\/div>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:22%;'>App 類型<\/th>\n    <th style='padding:7px;text-align:left;width:32%;'>✅ 合理的權限<\/th>\n    <th style='padding:7px;text-align:left;'>🚩 該起疑的權限<\/th><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'>手電筒<\/td><td style='padding:7px;'>（幾乎不需要任何權限）<\/td><td style='padding:7px;'>聯絡人、位置、簡訊、通話紀錄<\/td><\/tr>\n  <tr><td style='padding:7px;'>相機／修圖<\/td><td style='padding:7px;'>相機、相簿<\/td><td style='padding:7px;'>聯絡人、通話紀錄、精確位置<\/td><\/tr>\n  <tr style='background:#f8fafc;'><td style='padding:7px;'>導航地圖<\/td><td style='padding:7px;'>位置（使用時）<\/td><td style='padding:7px;'>麥克風常駐、簡訊、相簿全部<\/td><\/tr>\n  <tr><td style='padding:7px;'>遊戲<\/td><td style='padding:7px;'>（通常不需要額外權限）<\/td><td style='padding:7px;'>聯絡人、簡訊、位置、通話紀錄<\/td><\/tr>\n<\/table>\n<div style='background:#f0fdf4;padding:12px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ⚙️ <strong>怎麼檢查？<\/strong>iOS：「設定 → 隱私權與安全性」逐項看哪些 App 拿到了什麼權限。Android：「設定 → 隱私權 → 權限管理員」。<br>\n    位置權限盡量選「<strong>使用 App 時<\/strong>」而不是「一律允許」，並關閉不需要的「精確位置」。<\/p>\n<\/div>"}, {"id": 13, "chapter": "第三節：手機與帳號的隱私設定", "title": "社群隱私設定", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>👥 社群帳號隱私設定：預設不公開<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;'>\n    <h3 style='color:#166534;font-size:.98rem;margin-bottom:8px;'>✅ 建議這樣設定<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li>帳號設為<strong>非公開／私人<\/strong><\/li>\n      <li>限制「誰可以私訊我」為追蹤中的人<\/li>\n      <li>關閉「顯示上線狀態」與「已讀」<\/li>\n      <li>關閉貼文與限動的<strong>位置標記<\/strong><\/li>\n      <li>定期檢查追蹤者，移除不認識的帳號<\/li>\n      <li>個人檔案<strong>不要寫學校、班級、生日全日期<\/strong><\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;'>\n    <h3 style='color:#991b1b;font-size:.98rem;margin-bottom:8px;'>🚩 這些細節會洩漏你的位置<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li>制服上的校名、書包上的班級<\/li>\n      <li>背景的門牌、站牌、招牌<\/li>\n      <li>「每天這個時間我都在這裡」的規律<\/li>\n      <li>限時動態的即時定位<\/li>\n      <li>發文時間透露的作息<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🧩 <strong>拼圖效應<\/strong>：單獨看，「我讀芳和」「我住這附近」「我每天 4:20 放學」都不算什麼。但<strong>拼在一起<\/strong>，陌生人就知道幾點在哪裡可以遇到你。這正是最需要注意的地方。<\/p>\n<\/div>"}, {"id": 14, "chapter": "第三節：手機與帳號的隱私設定", "title": "手機遺失怎麼辦", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📵 手機遺失怎麼辦？（事前準備最重要）<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;border-top:5px solid #2563eb;'>\n    <h3 style='color:#1e40af;font-size:.98rem;margin-bottom:8px;'>🛠️ 現在就先設定好<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li><strong>螢幕鎖<\/strong>：密碼／指紋／臉部辨識<\/li>\n      <li><strong>尋找裝置<\/strong>：iOS 的「Find My」、Android 的「尋找我的裝置」<\/li>\n      <li>開啟<strong>雲端備份<\/strong>，照片與聯絡人不會一起消失<\/li>\n      <li>記下手機的 <strong>IMEI 碼<\/strong>（撥 <code>*#06#<\/code> 可查）<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-top:5px solid #dc2626;'>\n    <h3 style='color:#991b1b;font-size:.98rem;margin-bottom:8px;'>🚨 真的遺失時的順序<\/h3>\n    <ol style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:20px;margin:0;'>\n      <li>用別的裝置登入「尋找裝置」<strong>定位並鎖定<\/strong><\/li>\n      <li>告訴家長，向<strong>電信業者停話<\/strong>（避免被拿去收驗證碼）<\/li>\n      <li>更改重要帳號的密碼（Email 優先）<\/li>\n      <li>確定找不回來時，<strong>遠端清除資料<\/strong><\/li>\n      <li>必要時報案，提供 IMEI 碼<\/li>\n    <\/ol>\n  <\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💨 <strong>其他好用設定<\/strong>：使用具「閱後即焚」或「訊息自動刪除」功能的通訊軟體，可以降低私密內容長期留存的風險——但要記得，<strong>對方仍然可以截圖<\/strong>。<\/p>\n<\/div>"}, {"id": 15, "chapter": "第三節：手機與帳號的隱私設定", "title": "安全 vs 隱私", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>⚖️ 科技的兩難：社會安全 vs 個人隱私<\/h2>\n<div style='display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;'>\n    <h3 style='color:#1e40af;font-size:.98rem;margin-bottom:8px;'>🔍 支持「追求安全」<\/h3>\n    <ul style='color:#334155;font-size:.81rem;line-height:1.85;padding-left:18px;margin:0;'>\n      <li>監視器協助找回走失的長者與孩童<\/li>\n      <li>影像辨識協助追查肇事逃逸與犯罪<\/li>\n      <li>疫情期間的接觸史追蹤有助防疫<\/li>\n      <li>大數據可預測風險、提早預防<\/li>\n    <\/ul>\n  <\/div>\n  <div style='color:#94a3b8;font-size:1.3rem;font-weight:900;'>VS<\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;'>\n    <h3 style='color:#991b1b;font-size:.98rem;margin-bottom:8px;'>🔐 支持「保護隱私」<\/h3>\n    <ul style='color:#334155;font-size:.81rem;line-height:1.85;padding-left:18px;margin:0;'>\n      <li>不被隨意記錄行蹤是基本權利<\/li>\n      <li>資料一旦蒐集，就有被濫用的可能<\/li>\n      <li>應該知道誰在用我的資料、用來做什麼<\/li>\n      <li>權力若無監督，範圍容易越擴越大<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#f5f3ff;padding:13px 16px;border-radius:8px;border-left:4px solid #7c3aed;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.9;'>\n    💬 <strong>這題沒有標準答案<\/strong>，但好的討論會問這些問題：<br>\n    ① 蒐集的<strong>範圍<\/strong>有沒有限制？　② 資料保存<strong>多久<\/strong>、之後會刪除嗎？　③ 誰能<strong>監督<\/strong>？　④ 出錯時<strong>怎麼申訴<\/strong>？<br>\n    <span style='color:#64748b;font-size:.83rem;'>比起「贊成或反對」，能說出「在什麼條件下我可以接受」，才是成熟的思考。<\/span><\/p>\n<\/div>"}, {"id": 16, "chapter": "第三節：手機與帳號的隱私設定", "title": "第三節 隨堂測驗", "bg": "purple", "quiz": "q3", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第三節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>隱私設定與權限管理 ｜ 3 題<\/p>\n<\/div>"}, {"id": 17, "chapter": "第四節：尊重別人的個資", "title": "別人的個資也要保護", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🤝 保護個資，也包含「別人的」<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#fef2f2;padding:13px;border-radius:10px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>📸 未經同意發合照<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>照片的著作權是你的，但<strong>照片裡的人有肖像權<\/strong>。發之前先問一聲。<\/p><\/div>\n  <div style='background:#fff7ed;padding:13px;border-radius:10px;'>\n    <strong style='color:#9a3412;font-size:.88rem;'>💬 轉貼私訊截圖<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>把私下的對話公開，侵害隱私；若帶有嘲笑意味，就是霸凌。<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;'>\n    <strong style='color:#854d0e;font-size:.88rem;'>📋 公布班級名單<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>姓名＋座號＋成績＋電話的組合，是完整的個資，不該公開在網路上。<\/p><\/div>\n  <div style='background:#f5f3ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#5b21b6;font-size:.88rem;'>🤖 把別人的資料貼給 AI<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>你不知道那些內容會被怎麼儲存與使用。含他人個資的內容不要貼。<\/p><\/div>\n<\/div>\n<div style='background:#1e293b;border-radius:10px;padding:14px 18px;margin-bottom:10px;'>\n  <p style='color:#e2e8f0;font-size:.88rem;margin:0;line-height:1.9;'>\n    ⚖️ <strong style='color:#fbbf24;'>法律上要知道的事<\/strong>：未經同意散布他人私密影像、在網路上公開辱罵或散布不實訊息，都可能涉及<strong>刑事責任<\/strong>。「只是開玩笑」「大家都在傳」在法律上都不是免責的理由。<br>\n    <span style='color:#94a3b8;font-size:.83rem;'>未成年人違法一樣要負責，只是依《少年事件處理法》有不同的處理程序。<\/span><\/p>\n<\/div>\n<div style='background:#f0fdf4;padding:11px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💚 <strong>最簡單的判準<\/strong>：如果這件事發生在<strong>你<\/strong>身上，你會不會不舒服？會的話，就不要對別人做。<\/p>\n<\/div>"}, {"id": 18, "chapter": "第四節：尊重別人的個資", "title": "網路霸凌怎麼辦", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🆘 遇到網路霸凌或個資外洩，怎麼辦？<\/h2>\n<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:11px;padding:14px;'>\n    <div style='background:#2563eb;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>1<\/div>\n    <strong style='color:#1e40af;font-size:.87rem;'>保留證據<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>截圖（含時間、帳號、網址），不要先刪掉<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:11px;padding:14px;'>\n    <div style='background:#16a34a;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>2<\/div>\n    <strong style='color:#166534;font-size:.87rem;'>告訴大人<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>家長、導師、輔導老師——越早說越好處理<\/p><\/div>\n  <div style='background:#fefce8;border-radius:11px;padding:14px;'>\n    <div style='background:#eab308;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>3<\/div>\n    <strong style='color:#854d0e;font-size:.87rem;'>檢舉與封鎖<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>用平台的檢舉功能，並封鎖對方帳號<\/p><\/div>\n  <div style='background:#fef2f2;border-radius:11px;padding:14px;'>\n    <div style='background:#dc2626;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;margin-bottom:7px;'>4<\/div>\n    <strong style='color:#991b1b;font-size:.87rem;'>尋求協助<\/strong>\n    <p style='font-size:.77rem;color:#475569;margin-top:5px;line-height:1.7;'>必要時報案，或向 iWIN 網路內容防護機構申訴<\/p><\/div>\n<\/div>\n<div style='background:#fef2f2;padding:12px 16px;border-radius:8px;border-left:4px solid #dc2626;margin-bottom:10px;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.9;'>\n    ❌ <strong>不要做的三件事<\/strong>：① <strong>不要以牙還牙<\/strong>（你會變成加害者）　② <strong>不要獨自承受<\/strong>（這不是你活該）　③ <strong>不要先刪除證據<\/strong>（之後很難處理）。<\/p>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    💚 <strong>如果你覺得很難受<\/strong>：被攻擊的感覺是真實的，不是「小題大作」。除了學校的輔導老師，也可以撥打<strong>1995 生命線<\/strong>或<strong>1980 張老師<\/strong>專線談一談。你不需要一個人扛。<\/p>\n<\/div>"}, {"id": 19, "chapter": "第四節：尊重別人的個資", "title": "個資保護行動守則", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>🛡️ 個資保護行動守則<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;'>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <strong style='color:#fff;font-size:.88rem;'>① 能不給就不給<\/strong>\n    <p style='color:#ccfbf1;font-size:.78rem;margin-top:5px;line-height:1.7;'>填表單前先問：這個欄位是必填嗎？真的需要嗎？<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <strong style='color:#fff;font-size:.88rem;'>② 權限只給必要的<\/strong>\n    <p style='color:#ccfbf1;font-size:.78rem;margin-top:5px;line-height:1.7;'>與功能無關的權限一律拒絕，位置選「使用時」<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <strong style='color:#fff;font-size:.88rem;'>③ 預設不公開<\/strong>\n    <p style='color:#ccfbf1;font-size:.78rem;margin-top:5px;line-height:1.7;'>社群帳號設為私人，個人檔案別寫學校班級生日<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <strong style='color:#fff;font-size:.88rem;'>④ 發布前想三秒<\/strong>\n    <p style='color:#ccfbf1;font-size:.78rem;margin-top:5px;line-height:1.7;'>爸媽看到 OK 嗎？有別人的資訊嗎？十年後呢？<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <strong style='color:#fff;font-size:.88rem;'>⑤ 尊重別人的資料<\/strong>\n    <p style='color:#ccfbf1;font-size:.78rem;margin-top:5px;line-height:1.7;'>合照先問過、私訊不轉貼、名單不公開<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <strong style='color:#fff;font-size:.88rem;'>⑥ 出事就找大人<\/strong>\n    <p style='color:#ccfbf1;font-size:.78rem;margin-top:5px;line-height:1.7;'>保留證據、告訴信任的大人、平台檢舉<\/p><\/div>\n<\/div>\n<div style='background:rgba(0,0,0,.22);border-radius:9px;padding:13px 18px;text-align:center;'>\n  <p style='color:#fff;font-size:.95rem;font-weight:700;margin:0;'>你的資料，是「你之所以是你」的一部分。值得好好守著。<\/p>\n<\/div>"}, {"id": 20, "chapter": "第四節：尊重別人的個資", "title": "第四節 隨堂測驗", "bg": "purple", "quiz": "q4", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第四節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>尊重他人的個資 ｜ 3 題<\/p>\n<\/div>"}, {"id": 21, "chapter": "課堂實作", "title": "課堂實作：隱私自我檢核", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎯 課堂實作：我的隱私自我檢核<\/h2>\n<div style='display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:16px;'>\n    <h3 style='color:#1e40af;font-size:1rem;margin-bottom:8px;'>📋 任務（個人，Google 文件）<\/h3>\n    <ol style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:20px;margin:0;'>\n      <li><strong>App 權限清查<\/strong>：打開手機設定，找出<strong>3 個<\/strong>你覺得「權限給太多」的 App，列出它拿了什麼、你決定關掉哪些<\/li>\n      <li><strong>社群隱私檢查<\/strong>：對照第 13 頁的清單，逐項勾選，寫下<strong>你已調整的兩項設定<\/strong><\/li>\n      <li><strong>自我搜尋<\/strong>：用搜尋引擎查自己的名字或常用暱稱，記錄找到了什麼（截圖時遮住個資）<\/li>\n      <li><strong>一句反思<\/strong>：這節課讓你最意外的一件事是什麼？<\/li>\n    <\/ol>\n    <p style='color:#dc2626;font-size:.81rem;margin-top:9px;'><strong>⚠️ 學習單上不要寫出真實的帳號、密碼或住址。<\/strong>截圖請遮蔽個資。<\/p>\n  <\/div>\n  <div style='background:#fffbeb;border-radius:12px;padding:16px;'>\n    <h3 style='color:#92400e;font-size:1rem;margin-bottom:8px;'>📏 評分（規準二）<\/h3>\n    <table style='width:100%;font-size:.79rem;color:#334155;border-collapse:collapse;'>\n      <tr><td style='padding:5px 0;width:14%;'><strong style='color:#059669;'>A<\/strong><\/td><td>能<strong>應用與分析<\/strong>：具體說明每項調整的理由與可能風險<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#2563eb;'>B<\/strong><\/td><td>能<strong>理解<\/strong>：完成檢核並說明調整內容<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#d97706;'>C<\/strong><\/td><td>能<strong>認識<\/strong>：完成大部分檢核項目<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#dc2626;'>D<\/strong><\/td><td>僅完成部分項目<\/td><\/tr>\n    <\/table>\n    <div style='background:#fff;border-radius:8px;padding:10px;margin-top:10px;'>\n      <p style='font-size:.78rem;color:#475569;margin:0;line-height:1.75;'>🏆 <strong>加分<\/strong>：回家和家人一起做一次這份檢核，記錄他們的反應與你們的討論。<\/p>\n    <\/div>\n  <\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💬 <strong>下課前的分享<\/strong>：說一項「我今天要回去改掉的設定」。全班一起做，比一個人做容易堅持。<\/p>\n<\/div>"}, {"id": 22, "chapter": "課堂實作", "title": "本章重點回顧", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>📌 第 4 週 重點回顧<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;'>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>個人資料<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>能識別特定個人的資料；病歷等屬特種個資，保護更嚴格<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>你的五項權利<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>查詢閱覽、製給複製本、補充更正、停止利用、請求刪除<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>數位足跡與演算法<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>主動＋被動足跡餵養推薦系統；它的目標是留住你，不是告訴你真相<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>尊重他人<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>合照先問、私訊不轉貼；遇到霸凌先留證據再找大人<\/p><\/div>\n<\/div>\n<div style='background:linear-gradient(90deg,rgba(13,148,136,.35),rgba(107,63,160,.35));border-radius:10px;padding:16px 20px;text-align:center;'>\n  <p style='color:#fff;font-size:1.02rem;font-weight:700;margin:0;'>你拍的照片、你畫的圖，著作權是誰的？別人可以隨便拿去用嗎？<\/p>\n  <p style='color:#cbd5e1;font-size:.82rem;margin-top:6px;'>下一週：數位著作合理使用（著作權與創用 CC）<\/p>\n<\/div>"}];window.__QUIZZES__={"q1": {"title": "第一節 隨堂測驗", "questions": [{"q": "依《個人資料保護法》，下列何者「不屬於」個人資料？", "options": ["姓名、身分證統一編號、聯絡電話", "你的病歷與健康檢查結果", "全校學生的平均身高（無法辨識出特定個人）", "你的照片與指紋"], "answer": 2, "explain": "個人資料的關鍵在於「<strong>可以直接或間接識別出特定的自然人<\/strong>」。全校平均身高是統計數字，看不出是誰，所以不是個資。反之，即使沒寫名字，若能靠學號、座位、照片拼湊出是誰，仍屬於個資。"}, {"q": "《個人資料保護法》中所稱的「特種個人資料」，包含下列哪一項？", "options": ["電子郵件地址", "就讀學校", "病歷、醫療、健康檢查與犯罪前科等資料", "手機型號"], "answer": 2, "explain": "個資法第 6 條把病歷、醫療、基因、性生活、健康檢查、犯罪前科列為特種個資，原則上<strong>不得蒐集、處理或利用<\/strong>，只有在法律明文允許等特定情形下才可以，保護程度比一般個資更高。"}, {"q": "依個資法，當事人（也就是你）對自己的個人資料享有的權利「不包含」下列哪一項？", "options": ["查詢或請求閱覽", "請求補充或更正錯誤的資料", "請求停止蒐集、處理、利用或請求刪除", "要求對方支付使用你個資的費用"], "answer": 3, "explain": "個資法賦予當事人五項權利：查詢閱覽、請求製給複製本、補充更正、請求停止蒐集處理利用、請求刪除。<strong>這些權利不得預先拋棄或以契約限制<\/strong>。但沒有「收費」這一項。"}]}, "q2": {"title": "第二節 隨堂測驗", "questions": [{"q": "「同溫層（過濾氣泡）」現象是怎麼形成的？", "options": ["網路訊號不好造成的", "演算法根據你的點擊與停留紀錄，不斷推薦你可能喜歡的內容，讓你越來越少看到不同觀點", "因為手機螢幕太小", "因為網路上的資訊本來就很少"], "answer": 1, "explain": "推薦系統的目標是「讓你停留更久」，所以它會餵你更多你會喜歡的東西。久了之後，你看到的世界就只剩下同一種聲音——這不是有人刻意隱瞞，而是演算法運作的自然結果。"}, {"q": "要減少被演算法過度影響，下列哪個做法最有效？", "options": ["完全不用社群媒體", "主動追蹤不同立場的來源、定期清理觀看紀錄、關掉自動播放，並意識到「推薦不等於真相」", "把手機音量調小", "只看影片不看文字"], "answer": 1, "explain": "不必極端到完全不用，重點是<strong>保持主動<\/strong>：主動選擇要看什麼，而不是被動接受推薦。知道演算法正在運作，本身就是一種防護。"}, {"q": "關於「刪除社群貼文」，下列敘述何者最正確？", "options": ["刪掉之後網路上就完全找不到了", "別人可能早已截圖或轉發，網路存檔服務也可能留有紀錄，很難完全消失", "只要設成私密就等於刪除", "刪除後對方帳號也會一起被刪"], "answer": 1, "explain": "網路的特性是「<strong>複製成本為零<\/strong>」。你發出去的瞬間，別人就可以截圖、轉存、備份。所以最重要的防線不是「刪除」，而是<strong>發出去之前先想三秒<\/strong>。"}]}, "q3": {"title": "第三節 隨堂測驗", "questions": [{"q": "一個手電筒 App 要求你開放「聯絡人」與「位置」權限，最合理的判斷是？", "options": ["為了讓手電筒更亮，應該開放", "這些權限與 App 的功能無關，屬於過度索取，應該拒絕或換一個 App", "App 都會這樣要求，開放沒關係", "開放之後可以拿到免費點數"], "answer": 1, "explain": "判斷原則是「<strong>這個權限跟它的功能有關嗎？<\/strong>」手電筒只需要控制閃光燈。索取無關權限的 App，很可能靠賣你的資料賺錢。Android 與 iOS 都可以在設定中逐項檢視與關閉權限。"}, {"q": "關於在社群平台的隱私設定，下列哪個做法最恰當？", "options": ["公開所有資訊，這樣比較多人追蹤", "把帳號設為非公開、限制誰能看到貼文與個人資訊，並定期檢查追蹤者名單", "把生日與就讀學校寫清楚，方便朋友找到你", "接受所有陌生人的追蹤請求"], "answer": 1, "explain": "個人檔案上的學校、生日、班級、常去的地點，拼起來就足以讓陌生人找到你。原則是「<strong>預設不公開，需要才開放<\/strong>」，並定期檢查追蹤者裡有沒有不認識的人。"}, {"q": "手機遺失時，最能保護個人資料的事前準備是？", "options": ["把手機殼換成螢光色比較好找", "事先設定螢幕鎖與「尋找我的裝置／Find My」，必要時可遠端鎖定或清除資料", "把所有照片存在手機裡就好", "把密碼寫在手機背面"], "answer": 1, "explain": "iOS 的「Find My」與 Android 的「尋找我的裝置」可以遠端定位、鎖定，甚至清除全部資料。加上螢幕鎖，撿到的人就打不開。這些都要<strong>事先<\/strong>設定好，遺失後才來設就來不及了。"}]}, "q4": {"title": "第四節 隨堂測驗", "questions": [{"q": "你在班上活動時拍了合照，想發到社群上。最恰當的做法是？", "options": ["直接發，反正是我拍的", "先詢問照片中每個人的意願，有人不願意就不發或把他打碼", "把不喜歡的同學標記出來讓大家評論", "設成私密就可以隨便發"], "answer": 1, "explain": "照片的著作權是拍攝者的，但<strong>照片裡的人有肖像權與隱私權<\/strong>。發布他人可辨識的影像前先徵得同意，是基本的尊重，也能避免糾紛。"}, {"q": "同學把另一位同學的私訊截圖轉貼到班級群組取笑他。這個行為的問題是？", "options": ["沒有問題，因為是同學之間的事", "同時侵害他人隱私，也可能構成網路霸凌，情節嚴重時涉及法律責任", "只要不寫名字就沒關係", "只有老師才不能這樣做"], "answer": 1, "explain": "未經同意散布他人的私人訊息會侵害隱私；若內容帶有貶損、嘲笑並造成當事人痛苦，就構成網路霸凌，可能涉及《刑法》妨害名譽等責任。「大家都在轉」不是理由。"}, {"q": "如果你發現自己的照片被別人未經同意散布，應該怎麼做？", "options": ["自己想辦法私下解決，不要讓別人知道", "保留證據（截圖、網址），立即告訴家長或老師，必要時向平台檢舉或向 iWIN 等單位求助", "也把對方的照片散布出去報復", "刪掉自己的帳號就好"], "answer": 1, "explain": "正確順序是：<strong>保留證據 → 告訴信任的大人 → 向平台檢舉 → 必要時報案或向 iWIN 網路內容防護機構求助<\/strong>。以牙還牙只會讓自己也變成加害者。"}]}};</script>
+</head>
+<body>
+
+<!-- 進度條 -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- 頂部導覽列 -->
+<div id="topbar">
+  <span class="tb-title" id="tb-chapter">AI 時代的數位創作者</span>
+  <span class="tb-counter" id="tb-counter">1 / 22</span>
+  <button id="btn-toc" onclick="toggleToc()">目錄 ☰</button>
+</div>
+
+<!-- 投影片主體 -->
+<div id="slide-wrap">
+  <div id="slide-frame" class="bg-navy"></div>
+</div>
+
+<!-- 底部導覽 -->
+<div id="nav-bar">
+  <button class="nav-btn" id="btn-prev" onclick="prevSlide()" disabled>← 上一頁</button>
+  <div id="slide-dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="nextSlide()">下一頁 →</button>
+</div>
+
+<!-- TOC 側邊欄 -->
+<div id="toc">
+  <h3>📑 課程目錄</h3>
+  <div id="toc-list"></div>
+</div>
+
+<!-- 測驗 Modal -->
+<div id="quiz-overlay">
+  <div id="quiz-box">
+    <div id="quiz-header">
+      <h3 id="quiz-title">測驗</h3>
+      <span class="qh-score" id="quiz-score-preview"></span>
+    </div>
+    <div id="quiz-body"></div>
+    <div id="quiz-footer">
+      <span class="qf-score" id="quiz-result"></span>
+      <div style="display:flex;gap:10px">
+        <button id="btn-submit-quiz" onclick="submitQuiz()">送出答案</button>
+        <button id="btn-close-quiz" onclick="closeQuiz()">繼續學習 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  從 Jinja2 模板取得 Flask 傳入的資料
+// ════════════════════════════════════════════════════════════
+const TOTAL_SLIDES = 22;
+const CHAPTERS_DATA = [{"name": "\u5c01\u9762", "start": 1}, {"name": "\u7b2c\u4e00\u7bc0\uff1a\u4ec0\u9ebc\u662f\u500b\u4eba\u8cc7\u6599", "start": 2}, {"name": "\u7b2c\u4e8c\u7bc0\uff1a\u6578\u4f4d\u8db3\u8de1\u8207\u6f14\u7b97\u6cd5", "start": 7}, {"name": "\u7b2c\u4e09\u7bc0\uff1a\u624b\u6a5f\u8207\u5e33\u865f\u7684\u96b1\u79c1\u8a2d\u5b9a", "start": 12}, {"name": "\u7b2c\u56db\u7bc0\uff1a\u5c0a\u91cd\u5225\u4eba\u7684\u500b\u8cc7", "start": 17}, {"name": "\u8ab2\u5802\u5be6\u4f5c", "start": 21}];
+
+// ════════════════════════════════════════════════════════════
+//  全域狀態
+// ════════════════════════════════════════════════════════════
+let slides = [];
+let quizzes = {};
+let cur = 0;
+let answered = {};
+let tocVisible = true;
+const chartInstances = {};
+
+// ════════════════════════════════════════════════════════════
+//  初始化：從 Flask API 取得資料
+// ════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const [slidesRes, quizzesRes] = await Promise.all([
+      Promise.resolve({json:()=>window.__SLIDES__}),
+      Promise.resolve({json:()=>window.__QUIZZES__})
+    ]);
+    slides = await slidesRes.json();
+    quizzes = await quizzesRes.json();
+    buildToc();
+    buildDots();
+    goTo(0);
+  } catch (e) {
+    console.error('資料載入失敗：', e);
+    document.getElementById('slide-frame').innerHTML =
+      "<div style='color:red;padding:20px'>❌ 請確認 Flask 伺服器已啟動！<br><code>python app.py</code></div>";
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立目錄（TOC）
+// ════════════════════════════════════════════════════════════
+function buildToc() {
+  const list = document.getElementById('toc-list');
+  let lastChapter = '';
+  slides.forEach((s, i) => {
+    if (s.chapter !== lastChapter) {
+      const ch = document.createElement('div');
+      ch.className = 'toc-chapter';
+      ch.textContent = s.chapter;
+      list.appendChild(ch);
+      lastChapter = s.chapter;
+    }
+    const item = document.createElement('div');
+    item.className = 'toc-item';
+    item.id = `toc-${i}`;
+    item.textContent = `${s.id}. ${s.title}`;
+    item.onclick = () => goTo(i);
+    list.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立點狀導覽
+// ════════════════════════════════════════════════════════════
+function buildDots() {
+  const wrap = document.getElementById('slide-dots');
+  const step = Math.max(1, Math.floor(slides.length / 15));
+  slides.forEach((s, i) => {
+    if (i % step !== 0 && i !== slides.length - 1) return;
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    d.title = s.title;
+    d.onclick = () => goTo(i);
+    wrap.appendChild(d);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  前往特定投影片
+// ════════════════════════════════════════════════════════════
+function goTo(idx) {
+  if (idx < 0 || idx >= slides.length) return;
+  cur = idx;
+  const s = slides[cur];
+  const frame = document.getElementById('slide-frame');
+  frame.className = '';
+  frame.classList.add('bg-' + s.bg);
+  frame.style.opacity = '0';
+  frame.innerHTML = s.html;
+  setTimeout(() => { frame.style.opacity = '1'; }, 30);
+  frame.scrollTop = 0;
+  if (s.chart) setTimeout(() => renderChart(s.chart), 80);
+  if (s.video) setTimeout(() => renderVideo(s.id, s.video), 80);
+  updateNav();
+  updateToc();
+  updateProgress();
+}
+
+// ════════════════════════════════════════════════════════════
+//  導覽：下一頁（有測驗時先觸發測驗）
+// ════════════════════════════════════════════════════════════
+function nextSlide() {
+  const s = slides[cur];
+  if (s.quiz && !answered[s.quiz]) {
+    showQuiz(s.quiz);
+  } else {
+    goTo(cur + 1);
+  }
+}
+function prevSlide() { goTo(cur - 1); }
+
+// ════════════════════════════════════════════════════════════
+//  更新導覽列、進度條、TOC
+// ════════════════════════════════════════════════════════════
+function updateNav() {
+  document.getElementById('btn-prev').disabled = cur === 0;
+  const isLast = cur === slides.length - 1;
+  const hasUnansweredQuiz = slides[cur].quiz && !answered[slides[cur].quiz];
+  document.getElementById('btn-next').disabled = isLast && !hasUnansweredQuiz;
+  document.getElementById('tb-chapter').textContent = slides[cur].chapter + '：' + slides[cur].title;
+  document.getElementById('tb-counter').textContent = `${cur + 1} / ${slides.length}`;
+  document.querySelectorAll('.dot').forEach(d => {
+    d.classList.remove('active');
+    const i = parseInt(d.id.replace('dot-', ''));
+    if (cur === i) d.classList.add('active');
+    else if (cur > i) d.classList.add('done');
+    else d.classList.remove('done');
+  });
+}
+
+function updateProgress() {
+  const pct = ((cur + 1) / slides.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function updateToc() {
+  document.querySelectorAll('.toc-item').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === cur) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+    else if (i < cur) el.classList.add('done');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  切換 TOC 顯示
+// ════════════════════════════════════════════════════════════
+function toggleToc() {
+  tocVisible = !tocVisible;
+  document.getElementById('toc').classList.toggle('hidden', !tocVisible);
+  document.getElementById('slide-wrap').classList.toggle('toc-hidden', !tocVisible);
+  document.getElementById('nav-bar').classList.toggle('toc-hidden', !tocVisible);
+}
+
+// ════════════════════════════════════════════════════════════
+//  鍵盤快捷鍵
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+
+// ════════════════════════════════════════════════════════════
+//  影片渲染（YouTube 嵌入 / 搜尋按鈕 / 兩者兼具）
+//  嵌入使用 youtube-nocookie.com（不追蹤、不推薦其他影片、無個人化廣告）
+//  參數 rel=0（結束不推薦別家頻道）、modestbranding=1（隱藏 YT logo）
+// ════════════════════════════════════════════════════════════
+function _ytEmbedHtml(vid, title) {
+  // 使用 youtube-nocookie.com — YouTube 官方「隱私強化」網域，更乾淨
+  return `
+    <div class="video-embed">
+      <iframe src="https://www.youtube-nocookie.com/embed/${vid}?rel=0&modestbranding=1&iv_load_policy=3&fs=1"
+        allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        loading="lazy"></iframe>
+    </div>
+    <p style="text-align:center;font-size:.72rem;color:rgba(255,255,255,.55);margin-top:6px">▶ ${title}</p>`;
+}
+function _ytSearchHtml(query, title, desc) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  return `
+    <a href="${url}" target="_blank" class="video-search-btn">
+      <span class="yt-icon">▶️</span>
+      <span>
+        <strong>${title}</strong><br>
+        <small style="font-weight:400;opacity:.8">${desc}</small>
+      </span>
+    </a>`;
+}
+
+function renderVideo(slideId, video) {
+  const el = document.getElementById(`video-section-${slideId}`);
+  if (!el) return;
+  if (video.type === 'youtube') {
+    el.innerHTML = _ytEmbedHtml(video.id, video.title);
+  } else if (video.type === 'both') {
+    // 嵌入播放器 + 底下附「找不到？搜尋更多」備援
+    el.innerHTML = `
+      ${_ytEmbedHtml(video.id, video.title)}
+      <div style="margin-top:10px;">
+        ${_ytSearchHtml(video.query, video.search_title || '想看更多相關影片', video.desc || '在 YouTube 搜尋同主題其他教學')}
+      </div>`;
+  } else {
+    el.innerHTML = _ytSearchHtml(video.query, video.title, video.desc);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  圖表渲染（Chart.js，防止重複建立）
+// ════════════════════════════════════════════════════════════
+function renderChart(type) {
+  if (type === 'formats') {
+    const el = document.getElementById('chart-formats');
+    if (!el || chartInstances['formats']) return;
+    chartInstances['formats'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['JPEG（照片）', 'PNG（圖示）', 'PNG（截圖）', 'SVG（Logo）'],
+        datasets: [{
+          label: '典型檔案大小（KB）',
+          data: [150, 400, 1200, 8],
+          backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.raw} KB` } }
+        },
+        scales: {
+          y: {
+            type: 'logarithmic',
+            title: { display: true, text: '檔案大小 KB（對數刻度）', color:'#6b7280', font:{size:10} },
+            ticks: { color:'#6b7280', font:{size:10}, callback: v => v + ' KB' }
+          },
+          x: { ticks: { color:'#374151', font:{size:11} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+
+  if (type === 'ai_tools') {
+    const el = document.getElementById('chart-ai-tools');
+    if (!el || chartInstances['ai_tools']) return;
+    chartInstances['ai_tools'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['ChatGPT GPT-4o', 'Canva AI', 'Midjourney', 'Adobe Firefly'],
+        datasets: [
+          {
+            label: '圖像品質',
+            data: [4, 3, 5, 4],
+            backgroundColor: 'rgba(107,63,160,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '操作難易',
+            data: [5, 5, 2, 4],
+            backgroundColor: 'rgba(13,148,136,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '授權安全',
+            data: [3, 4, 3, 5],
+            backgroundColor: 'rgba(245,158,11,.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font:{size:10}, padding:8 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}：${'⭐'.repeat(ctx.raw)}` } }
+        },
+        scales: {
+          y: {
+            min: 0, max: 5,
+            ticks: { color:'#6b7280', font:{size:10}, stepSize: 1, callback: v => v + '⭐' }
+          },
+          x: { ticks: { color:'#374151', font:{size:10} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  測驗功能
+// ════════════════════════════════════════════════════════════
+let curQuizId = null;
+let quizUserAnswers = {};
+
+function showQuiz(qId) {
+  curQuizId = qId;
+  quizUserAnswers = {};
+  const q = quizzes[qId];
+  document.getElementById('quiz-title').textContent = q.title;
+  document.getElementById('quiz-score-preview').textContent = q.questions.length + ' 題';
+  document.getElementById('quiz-result').textContent = '';
+  document.getElementById('btn-submit-quiz').style.display = '';
+  document.getElementById('btn-close-quiz').style.display = 'none';
+
+  const body = document.getElementById('quiz-body');
+  body.innerHTML = '';
+  q.questions.forEach((question, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.innerHTML = `<div class="q-text">${qi+1}. ${question.q}</div>
+      <div class="q-options" id="opts-${qi}">
+        ${question.options.map((opt, oi) =>
+          `<div class="q-opt" id="opt-${qi}-${oi}" onclick="selectOpt(${qi},${oi})">${opt}</div>`
+        ).join('')}
+      </div>`;
+    body.appendChild(div);
+  });
+  document.getElementById('quiz-overlay').classList.add('show');
+}
+
+function selectOpt(qi, oi) {
+  quizUserAnswers[qi] = oi;
+  const q = quizzes[curQuizId];
+  for (let o = 0; o < q.questions[qi].options.length; o++) {
+    document.getElementById(`opt-${qi}-${o}`).classList.toggle('selected', o === oi);
+  }
+}
+
+function submitQuiz() {
+  const q = quizzes[curQuizId];
+  let correct = 0;
+  q.questions.forEach((question, qi) => {
+    const chosen = quizUserAnswers[qi];
+    const opts = document.getElementById(`opts-${qi}`);
+    for (let o = 0; o < question.options.length; o++) {
+      const el = document.getElementById(`opt-${qi}-${o}`);
+      el.onclick = null;
+      el.classList.remove('selected');
+      if (o === question.answer) el.classList.add('correct');
+      else if (o === chosen && chosen !== question.answer) el.classList.add('wrong');
+    }
+    if (!opts.querySelector('.q-exp')) {
+      const exp = document.createElement('div');
+      exp.className = 'q-exp';
+      exp.innerHTML = '💡 ' + question.explain;   // 解析內容中的 <strong> 等標記
+      opts.after(exp);
+    }
+    if (chosen === question.answer) correct++;
+  });
+  const pct = Math.round((correct / q.questions.length) * 100);
+  document.getElementById('quiz-result').textContent = `得分：${correct}/${q.questions.length}（${pct}%）`;
+  document.getElementById('btn-submit-quiz').style.display = 'none';
+  document.getElementById('btn-close-quiz').style.display = 'inline-block';
+  answered[curQuizId] = true;
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('show');
+  goTo(cur + 1);
+}
+
+// ════════════════════════════════════════════════════════════
+//  啟動
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>

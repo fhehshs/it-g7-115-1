@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 時代的數位創作者 — 互動教學</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════
+   CSS 變數（全站顏色主題）
+   ══════════════════════════════════════ */
+:root {
+  --navy:#1E3A5F; --teal:#0D9488; --sage:#6B8F8F;
+  --purple:#6B3FA0; --gold:#F59E0B; --light:#F1F5F9; --white:#fff;
+  --text:#111827; --muted:#374151;
+  --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Noto Sans TC',sans-serif;background:#0f172a;color:var(--text);overflow:hidden;height:100vh}
+
+/* ═══ 進度條 ═══ */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));transition:width .4s;z-index:200}
+
+/* ═══ 頂部導覽 ═══ */
+#topbar{position:fixed;top:3px;left:0;right:0;height:48px;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+#topbar .tb-title{color:#fff;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .tb-counter{color:var(--gold);font-size:.8rem;white-space:nowrap}
+#btn-toc{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:.75rem;cursor:pointer}
+#btn-toc:hover{background:rgba(255,255,255,.1)}
+
+/* ═══ 投影片容器 ═══ */
+#slide-wrap{position:fixed;top:51px;left:280px;right:0;bottom:64px;overflow:hidden;transition:left .3s}
+#slide-wrap.toc-hidden{left:0}
+#slide-frame{width:100%;height:100%;padding:20px 24px;overflow-y:auto;transition:opacity .2s}
+
+/* ═══ 投影片背景 ═══ */
+.bg-navy{background:linear-gradient(135deg,#1E3A5F 0%,#0f2340 100%)}
+.bg-teal{background:linear-gradient(135deg,#0D9488 0%,#065f46 100%)}
+.bg-sage{background:linear-gradient(135deg,#6B8F8F 0%,#4a6b6b 100%)}
+.bg-purple{background:linear-gradient(135deg,#6B3FA0 0%,#3b1f6b 100%)}
+.bg-white{background:#f8fafc}
+
+/* ═══ 底部導覽按鈕 ═══ */
+#nav-bar{position:fixed;bottom:0;left:280px;right:0;height:64px;background:rgba(15,23,42,.95);display:flex;align-items:center;justify-content:center;gap:16px;transition:left .3s;z-index:100}
+#nav-bar.toc-hidden{left:0}
+.nav-btn{background:var(--purple);color:#fff;border:none;padding:10px 28px;border-radius:24px;font-size:.9rem;cursor:pointer;font-weight:600;transition:all .2s}
+.nav-btn:hover{background:#5a3290;transform:translateY(-1px)}
+.nav-btn:disabled{background:#334155;cursor:not-allowed;transform:none}
+#slide-dots{display:flex;gap:6px;align-items:center;max-width:300px;flex-wrap:wrap;justify-content:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#334155;cursor:pointer;transition:all .2s}
+.dot.active{background:var(--gold);transform:scale(1.3)}
+.dot.done{background:var(--teal)}
+
+/* ═══ TOC 側邊欄 ═══ */
+#toc{position:fixed;top:51px;left:0;width:280px;bottom:0;background:#0f172a;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;z-index:50;transition:transform .3s}
+#toc.hidden{transform:translateX(-100%)}
+#toc h3{padding:14px 16px 10px;color:var(--gold);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,.06)}
+.toc-item{padding:7px 16px;font-size:.78rem;color:#cbd5e1;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc-item:hover{color:#fff;background:rgba(255,255,255,.05)}
+.toc-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(245,158,11,.08)}
+.toc-item.done{color:var(--teal)}
+.toc-chapter{padding:8px 16px 4px;font-size:.7rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ═══ 封面樣式 ═══ */
+.cover-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 130px);text-align:center;padding:20px}
+.cover-badge{background:rgba(107,63,160,.3);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:.8rem;letter-spacing:.08em;margin-bottom:20px;border:1px solid rgba(107,63,160,.4)}
+.cover-title{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
+.cover-sub{font-size:clamp(.9rem,1.5vw,1.1rem);color:#94a3b8;margin-bottom:24px;max-width:500px}
+.cover-tags{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px}
+.tag{background:rgba(255,255,255,.1);color:#cbd5e1;padding:5px 14px;border-radius:14px;font-size:.78rem;border:1px solid rgba(255,255,255,.15)}
+.cover-meta{font-size:.75rem;color:#475569}
+
+/* ═══ 投影片通用 ═══ */
+.slide-inner{padding:8px 4px}
+.slide-title{font-size:clamp(1.1rem,2.2vw,1.5rem);font-weight:700;margin-bottom:12px;color:var(--text)}
+.slide-desc{font-size:.88rem;color:var(--muted);margin-bottom:14px}
+.slide-note{font-size:.82rem;color:var(--muted);margin-top:12px;padding:8px 12px;background:rgba(0,0,0,.05);border-radius:8px}
+.tip-box{background:linear-gradient(135deg,rgba(107,63,160,.1),rgba(30,58,95,.1));border:1px solid rgba(107,63,160,.25);border-radius:10px;padding:12px 16px;font-size:.83rem;color:var(--text);margin-top:12px;line-height:1.6}
+
+/* ═══ 卡片格 ═══ */
+.card-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.card-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.info-card{background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.15)}
+.card-icon{font-size:1.6rem;margin-bottom:6px}
+.card-label{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:4px}
+.card-desc{font-size:.72rem;color:rgba(255,255,255,.92);line-height:1.4}
+
+/* ═══ 位元視覺 ═══ */
+.bit-demo{background:rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.bit-box{padding:8px 16px;border-radius:10px;font-weight:700;font-size:.9rem;text-align:center}
+.bit-off{background:rgba(239,68,68,.25);border:2px solid rgba(239,68,68,.5);color:#fca5a5}
+.bit-on{background:rgba(34,197,94,.25);border:2px solid rgba(34,197,94,.5);color:#86efac}
+
+/* ═══ 平台表格 ═══ */
+.platform-table{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:10px}
+.pt-header{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;background:var(--navy);color:#fff;padding:8px 12px;font-size:.75rem;font-weight:600;gap:8px}
+.pt-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;padding:8px 12px;font-size:.78rem;gap:8px;border-top:1px solid #f1f5f9;align-items:center}
+.pt-row:nth-child(even){background:#f8fafc}
+.pt-name{font-weight:600;color:var(--navy)}
+
+/* ═══ 四層架構 ═══ */
+.layer-stack{display:flex;flex-direction:column;gap:2px;margin:8px 0}
+.layer{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15)}
+.layer-hw{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.6);border-width:2px}
+.layer-os{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.6);border-width:2px}
+.layer-app{background:rgba(13,148,136,.12);border-color:rgba(13,148,136,.6);border-width:2px}
+.layer-user{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.6);border-width:2px}
+.layer-num{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.18);color:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.layer-name{font-weight:700;font-size:.88rem;color:#1e293b;margin-bottom:2px}
+.layer-detail{font-size:.75rem;color:#475569}
+.layer-arrow{text-align:center;color:#64748b;font-size:.9rem;margin:-4px 0}
+
+/* ═══ 儲存單位 ═══ */
+.units-grid{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.unit-row{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0}
+.unit-small{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
+.unit-large{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+.unit-name{font-size:.82rem;font-weight:700;color:#1e293b;min-width:150px}
+.unit-eq{font-size:.78rem;color:#475569}
+
+/* ═══ 資料表格 ═══ */
+.info-table{width:100%;border-collapse:collapse;font-size:.8rem;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+.info-table th,.info-table td{padding:8px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+.table-header{background:var(--navy);color:#fff}
+.table-header th{color:#fff;font-weight:600;font-size:.78rem;padding:9px 12px}
+.tr-highlight{background:rgba(13,148,136,.08)}
+.info-table tr:last-child td{border-bottom:none}
+.td-center{text-align:center}
+
+/* ═══ 功能卡片 ═══ */
+.func-card{display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0}
+.fc-num{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.fc-title{font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:3px}
+.fc-desc{font-size:.75rem;color:var(--muted);line-height:1.4}
+
+/* ═══ Fact Box ═══ */
+.fact-box{background:rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px}
+.fact-box p{font-size:.8rem;color:rgba(255,255,255,.95);margin-bottom:6px;line-height:1.5}
+
+/* ═══ 圖表 ═══ */
+.chart-wrap-full{width:100%;margin-bottom:10px}
+
+/* ═══ 作業 ═══ */
+.task-single{background:rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;border:1px solid rgba(255,255,255,.15);margin-bottom:14px}
+.task-title{font-size:.82rem;font-weight:700;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.task-item{font-size:.78rem;color:rgba(255,255,255,.8);margin-bottom:7px;padding-left:4px;line-height:1.4}
+.submit-box{display:flex;align-items:center;gap:14px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.4);border-radius:12px;padding:14px 16px}
+.submit-icon{font-size:2rem;flex-shrink:0}
+.submit-title{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:4px}
+.submit-desc{font-size:.78rem;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ═══ 影片區塊 ═══ */
+.video-section{margin:10px 0}
+.video-embed{border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9;width:100%;max-width:560px;margin:0 auto}
+.video-embed iframe{width:100%;height:100%;border:none;display:block}
+.video-search-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:600;transition:all .2s;width:fit-content;margin:0 auto}
+.video-search-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(220,38,38,.4)}
+.video-search-btn .yt-icon{font-size:1.2rem}
+
+/* ═══ 測驗 Modal ═══ */
+#quiz-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+#quiz-overlay.show{display:flex}
+#quiz-box{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#quiz-header{background:var(--purple);color:#fff;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
+#quiz-header h3{font-size:.95rem;font-weight:700}
+#quiz-header .qh-score{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:12px;font-size:.78rem}
+#quiz-body{padding:16px 20px;overflow-y:auto;flex:1}
+.quiz-q{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f1f5f9}
+.quiz-q:last-child{border-bottom:none}
+.q-text{font-size:.9rem;font-weight:600;color:var(--navy);margin-bottom:10px;line-height:1.4}
+.q-options{display:flex;flex-direction:column;gap:7px}
+.q-opt{padding:9px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:.82rem;transition:all .15s;line-height:1.3}
+.q-opt:hover{border-color:var(--purple);background:#faf5ff}
+.q-opt.selected{border-color:var(--navy);background:rgba(30,58,95,.05)}
+.q-opt.correct{border-color:#10b981;background:#f0fdf4;color:#065f46}
+.q-opt.wrong{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.q-exp{font-size:.78rem;color:#374151;background:#f8fafc;padding:8px 12px;border-radius:8px;margin-top:8px;border-left:3px solid var(--purple);line-height:1.5}
+#quiz-footer{padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;border-radius:0 0 16px 16px}
+#quiz-footer .qf-score{font-size:.88rem;font-weight:600;color:var(--navy)}
+#btn-submit-quiz,#btn-close-quiz{padding:8px 20px;border-radius:10px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s}
+#btn-submit-quiz{background:var(--navy);color:#fff}
+#btn-submit-quiz:hover{background:#0f2340}
+#btn-close-quiz{background:var(--purple);color:#fff;display:none}
+#btn-close-quiz:hover{background:#5a3290}
+</style>
+<script>window.__SLIDES__=[{"id": 1, "chapter": "封面", "title": "資訊安全：人是最大的漏洞", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:24px 20px;'>\n  <div style='font-size:66px;margin-bottom:14px;'>🎣<\/div>\n  <h1 style='font-size:2.4rem;font-weight:900;color:#fff;margin-bottom:10px;'>資訊安全：人是最大的漏洞<\/h1>\n  <h2 style='font-size:1.2rem;font-weight:400;color:#93c5fd;margin-bottom:22px;'>Information Security — The Weakest Link Is You<\/h2>\n  <div style='display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;'>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🕵️ 社交工程<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🔑 密碼防護<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🦠 惡意軟體<\/span>\n  <\/div>\n  <p style='color:#bfdbfe;font-size:1.05rem;'>七年級第一學期 ｜ 第 6 週<\/p>\n<\/div>"}, {"id": 2, "chapter": "第一節：社交工程", "title": "你點了嗎？", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>「超好玩遊戲免費下載」— 你點了嗎？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:20px;margin-bottom:12px;text-align:center;'>\n  <div style='background:linear-gradient(135deg,#dc2626,#f97316);border-radius:12px;padding:18px;display:inline-block;'>\n    <p style='color:#fff;font-size:1.15rem;font-weight:800;margin:0;'>🎮 限時免費！超好玩遊戲下載<\/p>\n    <p style='color:#fef3c7;font-size:.85rem;margin-top:6px;'>只剩 3 個名額，點我立即領取 →<\/p>\n  <\/div>\n  <p style='color:#94a3b8;font-size:.85rem;margin-top:14px;'>這就是<strong style='color:#fbbf24;'>社交工程攻擊（Social Engineering）<\/strong><\/p>\n<\/div>\n<div style='background:#f1f5f9;border-radius:10px;padding:13px 16px;margin-bottom:11px;border-left:4px solid #dc2626;'>\n  <p style='color:#0f172a;font-size:.9rem;margin:0;line-height:1.9;'>\n    📖 <strong>社交工程<\/strong>：不去攻擊電腦系統，而是<strong>攻擊「人」<\/strong>——利用信任、好奇、貪小便宜、恐慌或急迫感，誘使你自己交出帳密、點開連結或安裝程式。<\/p>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;'>🧠 <strong>核心觀念<\/strong>：不論防火牆多強、加密多複雜，只要「人」的行為出現漏洞，攻擊者就能輕鬆突破。<strong>資安不是 IT 部門的事，是每個人的事。<\/strong><\/p>\n<\/div>"}, {"id": 3, "chapter": "第一節：社交工程", "title": "社交工程的三大手法", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🕵️ 社交工程的常見手法<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-top:5px solid #dc2626;'>\n    <div style='font-size:1.7rem;'>🎣<\/div>\n    <strong style='color:#991b1b;font-size:.95rem;'>釣魚信件／簡訊<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'>偽裝成銀行、學校、物流、遊戲官方，寄出以假亂真的通知，誘你點連結輸入帳密。<\/p><\/div>\n  <div style='background:#fff7ed;border-radius:12px;padding:15px;border-top:5px solid #f97316;'>\n    <div style='font-size:1.7rem;'>📞<\/div>\n    <strong style='color:#9a3412;font-size:.95rem;'>假冒電話／客服<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'>冒充客服、警察、公家機關，說你「訂單有問題」「涉及案件」，騙取個資或誘導操作 ATM。<\/p><\/div>\n  <div style='background:#f5f3ff;border-radius:12px;padding:15px;border-top:5px solid #7c3aed;'>\n    <div style='font-size:1.7rem;'>🎮<\/div>\n    <strong style='color:#5b21b6;font-size:.95rem;'>惡意軟體偽裝<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:6px;line-height:1.75;'>偽裝成遊戲外掛、破解軟體、修圖 App，安裝後在背景竊取資料或鎖住檔案。<\/p><\/div>\n<\/div>\n<div style='background:#1e293b;border-radius:10px;padding:14px 18px;margin-bottom:10px;'>\n  <p style='color:#fbbf24;font-size:.9rem;font-weight:700;margin-bottom:6px;'>🎯 他們都在利用同樣的四種心理<\/p>\n  <div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;'>\n    <div style='background:rgba(255,255,255,.08);border-radius:7px;padding:9px;text-align:center;'><p style='color:#e2e8f0;font-size:.79rem;margin:0;'><strong>好奇<\/strong><br>「你被標記了」<\/p><\/div>\n    <div style='background:rgba(255,255,255,.08);border-radius:7px;padding:9px;text-align:center;'><p style='color:#e2e8f0;font-size:.79rem;margin:0;'><strong>貪<\/strong><br>「免費領取」<\/p><\/div>\n    <div style='background:rgba(255,255,255,.08);border-radius:7px;padding:9px;text-align:center;'><p style='color:#e2e8f0;font-size:.79rem;margin:0;'><strong>怕<\/strong><br>「帳號將停用」<\/p><\/div>\n    <div style='background:rgba(255,255,255,.08);border-radius:7px;padding:9px;text-align:center;'><p style='color:#e2e8f0;font-size:.79rem;margin:0;'><strong>急<\/strong><br>「限時 1 小時」<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='background:#f0fdf4;padding:11px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>✋ <strong>萬用解法：停三秒<\/strong>。當一則訊息讓你覺得「好興奮」或「好緊張」，那就是它<strong>正在操作你的情緒<\/strong>——這時候先停下來，換個管道查證。<\/p>\n<\/div>"}, {"id": 4, "chapter": "第一節：社交工程", "title": "學生最常遇到的陷阱", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🚨 國中生最常遇到的五種陷阱<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#991b1b;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:26%;'>常見話術<\/th>\n    <th style='padding:7px;text-align:left;width:32%;'>他真正想要的<\/th>\n    <th style='padding:7px;text-align:left;'>正確做法<\/th><\/tr>\n  <tr style='background:#fef2f2;'><td style='padding:7px;'>「遊戲免費送寶物，加我好友」<\/td><td style='padding:7px;'>你的遊戲帳密／手機驗證碼<\/td><td style='padding:7px;'>官方活動只會在官網公告；不加陌生人、不給驗證碼<\/td><\/tr>\n  <tr><td style='padding:7px;'>「幫我代收簡訊驗證碼，給你 500 元」<\/td><td style='padding:7px;'>用你的門號註冊人頭帳號<\/td><td style='padding:7px;'>絕對拒絕。驗證碼＝你的身分，可能因此涉入犯罪<\/td><\/tr>\n  <tr style='background:#fef2f2;'><td style='padding:7px;'>「我是你朋友，手機壞了跟你借錢」<\/td><td style='padding:7px;'>盜用帳號後向好友詐財<\/td><td style='padding:7px;'>打電話或當面確認，不要只靠訊息<\/td><\/tr>\n  <tr><td style='padding:7px;'>「傳一張自拍給我，我們是好朋友嘛」<\/td><td style='padding:7px;'>取得私密影像後勒索<\/td><td style='padding:7px;'>絕不傳送私密影像；已發生請立刻告訴大人<\/td><\/tr>\n  <tr style='background:#fef2f2;'><td style='padding:7px;'>「破解版遊戲／免費 Vbucks 產生器」<\/td><td style='padding:7px;'>讓你安裝惡意軟體<\/td><td style='padding:7px;'>只從官方商店下載；「免費的最貴」<\/td><\/tr>\n<\/table>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🆘 <strong>如果已經上當了怎麼辦？<\/strong>① <strong>立刻告訴家長或老師<\/strong>，越早越好處理　② 馬上更改該帳號與相同密碼的其他帳號　③ 保留截圖作為證據　④ 必要時撥打<strong>165 反詐騙諮詢專線<\/strong>。<br>\n    <span style='color:#dc2626;font-weight:600;'>被騙不是你的錯，隱瞞才會讓事情變嚴重。<\/span><\/p>\n<\/div>"}, {"id": 5, "chapter": "第一節：社交工程", "title": "台灣的資安處境", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🇹🇼 台灣的資安處境<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;'>\n    <h3 style='color:#991b1b;font-size:.98rem;margin-bottom:8px;'>📊 我們面對的情況<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li>多份國際資安報告指出，台灣是<strong>全球遭受網路攻擊最頻繁的地區之一<\/strong><\/li>\n      <li>攻擊目標涵蓋政府、醫院、學校、製造業與一般民眾<\/li>\n      <li>詐騙集團的話術與工具（含 AI 生成內容）不斷翻新<\/li>\n      <li>相當高比例的資安事件，起因都是<strong>「人的行為」<\/strong>而非技術漏洞<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;'>\n    <h3 style='color:#166534;font-size:.98rem;margin-bottom:8px;'>🛡️ 你可以用的官方資源<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li><strong>165 反詐騙諮詢專線<\/strong>：可疑訊息可先打去問<\/li>\n      <li><strong>教育部全民資安素養網<\/strong>：資安自我評量與教材<\/li>\n      <li><strong>iWIN 網路內容防護機構<\/strong>：檢舉不當網路內容<\/li>\n      <li><strong>臺北市科技教育網<\/strong>：網路使用習慣自我篩檢量表<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🔎 <strong>查證這件事本身就是練習<\/strong>：以上數據會逐年變化。做專題時請到<strong>官方網站查最新版本<\/strong>並註明年份——不要直接引用課堂投影片上的數字。<\/p>\n<\/div>"}, {"id": 6, "chapter": "第一節：社交工程", "title": "第一節 隨堂測驗", "bg": "purple", "quiz": "q1", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第一節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>社交工程 ｜ 3 題<\/p>\n<\/div>"}, {"id": 7, "chapter": "第二節：辨識釣魚攻擊", "title": "釣魚信件五個破綻", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔍 釣魚信件的五個破綻<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#fef2f2;padding:13px;border-radius:10px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>① 寄件者網域怪怪的<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>看 @ 後面！<code>@bank.com.tw<\/code> 和 <code>@bank-service.xyz<\/code> 差很多。多一個字母、換一個字尾都是常見手法。<\/p><\/div>\n  <div style='background:#fff7ed;padding:13px;border-radius:10px;'>\n    <strong style='color:#9a3412;font-size:.88rem;'>② 逼你「立刻」處理<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「24 小時內未驗證將停用帳號」——製造恐慌，讓你來不及思考。<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;'>\n    <strong style='color:#854d0e;font-size:.88rem;'>③ 稱呼很籠統<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「親愛的用戶您好」——真正的機構通常會叫得出你的名字或帳號末幾碼。<\/p><\/div>\n  <div style='background:#f5f3ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#5b21b6;font-size:.88rem;'>④ 文字有翻譯腔或錯字<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>用詞不自然、簡繁體混用、標點怪異。不過 AI 讓這個破綻越來越少，不能只靠這一點。<\/p><\/div>\n  <div style='background:#eff6ff;padding:13px;border-radius:10px;grid-column:span 2;'>\n    <strong style='color:#1e40af;font-size:.88rem;'>⑤ 要你點連結或開附件輸入帳密<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'><strong>這是最關鍵的一點。<\/strong>正當機構<strong>不會<\/strong>用 Email 或簡訊要求你點連結輸入密碼、信用卡號或驗證碼。看到這種要求，直接當成詐騙處理。<\/p><\/div>\n<\/div>\n<div style='background:#f0fdf4;padding:11px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>✅ <strong>黃金守則<\/strong>：不點信裡的連結。要登入就<strong>自己打開瀏覽器輸入官網網址<\/strong>，或用官方 App。這一招可以擋掉絕大多數釣魚攻擊。<\/p>\n<\/div>"}, {"id": 8, "chapter": "第二節：辨識釣魚攻擊", "title": "看懂一個網址", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🌐 看懂一個網址：真正重要的是哪一段？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <p style='color:#94a3b8;font-size:.82rem;margin-bottom:10px;'>網址的結構（由左往右讀，但<strong style='color:#fbbf24;'>要看的是「最後一個斜線之前、最右邊的兩三段」<\/strong>）<\/p>\n  <div style='background:#0f172a;border-radius:9px;padding:14px;font-family:monospace;font-size:.9rem;margin-bottom:12px;'>\n    <span style='color:#64748b;'>https://<\/span><span style='color:#64748b;'>login.<\/span><span style='color:#4ade80;font-weight:700;'>fhehs.tp.edu.tw<\/span><span style='color:#64748b;'>/account<\/span>\n    <p style='color:#4ade80;font-size:.75rem;margin-top:6px;font-family:sans-serif;'>✅ 真正的網域是 fhehs.tp.edu.tw<\/p>\n  <\/div>\n  <div style='background:#0f172a;border-radius:9px;padding:14px;font-family:monospace;font-size:.9rem;'>\n    <span style='color:#64748b;'>https://<\/span><span style='color:#64748b;'>fhehs.tp.edu.tw.<\/span><span style='color:#f87171;font-weight:700;'>secure-login.xyz<\/span><span style='color:#64748b;'>/verify<\/span>\n    <p style='color:#f87171;font-size:.75rem;margin-top:6px;font-family:sans-serif;'>❌ 真正的網域是 secure-login.xyz，前面那串只是騙你的幌子<\/p>\n  <\/div>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;'>\n  <div style='background:#eff6ff;border-radius:10px;padding:13px;'>\n    <strong style='color:#1e40af;font-size:.88rem;'>💻 電腦上怎麼看<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>滑鼠<strong>移到連結上不要點<\/strong>，瀏覽器左下角會顯示真實網址。<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>📱 手機上怎麼看<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'><strong>長按連結<\/strong>會跳出預覽，可以看到完整網址再決定。<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;margin-top:11px;'>\n  <p style='color:#374151;font-size:.87rem;margin:0;'>🔒 <strong>注意<\/strong>：有鎖頭（HTTPS）只代表「連線有加密」，<strong>不代表這個網站是好人<\/strong>。詐騙網站現在幾乎都有鎖頭。要看的是<strong>網域名稱<\/strong>。<\/p>\n<\/div>"}, {"id": 9, "chapter": "第二節：辨識釣魚攻擊", "title": "實戰演練：這封信有問題嗎", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🧪 實戰演練：找出這封信的四個破綻<\/h2>\n<div style='background:#f8fafc;border:2px solid #cbd5e1;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <div style='border-bottom:1px solid #e2e8f0;padding-bottom:9px;margin-bottom:9px;'>\n    <p style='font-size:.82rem;color:#475569;margin:0;'><strong>寄件者：<\/strong>芳和實驗中學資訊組 &lt;fhehs-service@mail-verify.top&gt; <span style='background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:.72rem;'>破綻 1<\/span><\/p>\n    <p style='font-size:.82rem;color:#475569;margin:4px 0 0;'><strong>主旨：<\/strong>【緊急】您的學校帳號將於 3 小時後停用 <span style='background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:.72rem;'>破綻 2<\/span><\/p>\n  <\/div>\n  <p style='font-size:.85rem;color:#334155;line-height:1.9;margin:0;'>\n    親愛的用戶您好： <span style='background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:.72rem;'>破綻 3<\/span><br><br>\n    系統偵測到您的帳號有異常登入紀錄。為保障您的權益，請於 3 小時內點擊下方連結，輸入您的<strong>學號與密碼<\/strong>完成身分驗證，逾期帳號將永久停用，所有雲端資料將被刪除。<br><br>\n    <span style='color:#2563eb;text-decoration:underline;'>👉 立即驗證我的帳號<\/span> <span style='background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:4px;font-size:.72rem;'>破綻 4<\/span><br><br>\n    芳和實驗中學 資訊安全中心 敬上<\/p>\n<\/div>\n<div style='background:#f0fdf4;padding:12px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.86rem;margin:0;line-height:1.9;'>\n    <strong>解答<\/strong>：① 寄件網域是 <code>mail-verify.top<\/code>，不是學校的 <code>fhehs.tp.edu.tw<\/code>　② 用「3 小時後停用」製造恐慌　③ 稱呼籠統，真正的學校信會有你的姓名或學號　④ <strong>要求點連結輸入密碼<\/strong>——學校絕不會這樣做。<\/p>\n<\/div>"}, {"id": 10, "chapter": "第二節：辨識釣魚攻擊", "title": "不只有 Email", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📲 釣魚不只有 Email：四種常見管道<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:11px;padding:14px;'>\n    <strong style='color:#1e40af;font-size:.9rem;'>📧 Email 釣魚（Phishing）<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>最傳統也最大量。偽裝成銀行、學校、購物平台、雲端服務。<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:11px;padding:14px;'>\n    <strong style='color:#166534;font-size:.9rem;'>💬 簡訊釣魚（Smishing）<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「您的包裹地址有誤，請點此更新」——短網址讓你看不出真實網域。<\/p><\/div>\n  <div style='background:#fefce8;border-radius:11px;padding:14px;'>\n    <strong style='color:#854d0e;font-size:.9rem;'>📞 語音釣魚（Vishing）<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>假冒客服或公務機關來電。現在還可能用 AI 模仿熟人的聲音。<\/p><\/div>\n  <div style='background:#f5f3ff;border-radius:11px;padding:14px;'>\n    <strong style='color:#5b21b6;font-size:.9rem;'>📷 QR Code 釣魚（Quishing）<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>在停車場、傳單、海報上貼假 QR Code，掃了就導到假的付款頁。<\/p><\/div>\n<\/div>\n<div style='background:#fef2f2;padding:12px 16px;border-radius:8px;border-left:4px solid #dc2626;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ⚠️ <strong>QR Code 特別要小心<\/strong>：掃描前先看看那張貼紙是不是被<strong>後貼上去<\/strong>的（邊緣翹起、蓋住原本的圖案）。掃完之後，<strong>先看網址再決定要不要開<\/strong>。<\/p>\n<\/div>\n<div style='background:#f0fdf4;padding:11px 16px;border-radius:8px;border-left:4px solid #16a34a;margin-top:10px;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>☎️ <strong>不管哪一種管道，做法都一樣<\/strong>：<strong>換一個你自己知道的管道去確認<\/strong>。收到「爸爸」的借錢訊息，就打電話給爸爸；收到「銀行」的通知，就打卡片背面的客服電話。<\/p>\n<\/div>"}, {"id": 11, "chapter": "第二節：辨識釣魚攻擊", "title": "第二節 隨堂測驗", "bg": "purple", "quiz": "q2", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第二節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>辨識釣魚攻擊 ｜ 3 題<\/p>\n<\/div>"}, {"id": 12, "chapter": "第三節：密碼與帳號防護", "title": "密碼破解要多久", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔓 你的密碼撐得住嗎？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <p style='color:#94a3b8;font-size:.82rem;margin-bottom:12px;'>電腦破解密碼的速度隨硬體進步而不斷變快，以下為<strong style='color:#fbbf24;'>相對難度示意<\/strong>（實際時間依攻擊方式與硬體而異）：<\/p>\n  <table style='width:100%;border-collapse:collapse;font-size:.85rem;'>\n    <tr style='background:rgba(239,68,68,.25);'><td style='padding:8px;color:#fca5a5;font-family:monospace;'>1234<\/td><td style='padding:8px;color:#fca5a5;'>瞬間 — 字典檔第一個就是它<\/td><\/tr>\n    <tr style='background:rgba(239,68,68,.18);'><td style='padding:8px;color:#fca5a5;font-family:monospace;'>password<\/td><td style='padding:8px;color:#fca5a5;'>瞬間 — 全球最常見密碼之一<\/td><\/tr>\n    <tr style='background:rgba(245,158,11,.2);'><td style='padding:8px;color:#fcd34d;font-family:monospace;'>abc123456<\/td><td style='padding:8px;color:#fcd34d;'>很快 — 純小寫加數字，組合太少<\/td><\/tr>\n    <tr style='background:rgba(132,204,22,.18);'><td style='padding:8px;color:#bef264;font-family:monospace;'>P@ssw0rd!<\/td><td style='padding:8px;color:#bef264;'>較久，但仍屬常見替換法（a→@、o→0）<\/td><\/tr>\n    <tr style='background:rgba(34,197,94,.2);'><td style='padding:8px;color:#86efac;font-family:monospace;'>Wo3Ai#ChiRouSong2025<\/td><td style='padding:8px;color:#86efac;'>非常久 — 夠長、夠雜、不在字典裡<\/td><\/tr>\n  <\/table>\n<\/div>\n<div style='background:#f0fdf4;padding:12px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;line-height:1.85;'>\n    🔑 <strong>好密碼三條件<\/strong>：① <strong>長度 12 字元以上<\/strong>（長度比複雜度更重要）　② <strong>大小寫＋數字＋符號<\/strong>混合　③ <strong>每個重要帳號用不同密碼<\/strong>。<br>\n    <span style='color:#64748b;font-size:.83rem;'>小技巧：把一句只有你知道的中文句子改寫成英數符號，例如「我最愛吃肉鬆」→ <code>Wo3Ai#ChiRouSong2025<\/code>。<\/span><\/p>\n<\/div>"}, {"id": 13, "chapter": "第三節：密碼與帳號防護", "title": "為什麼不能重複用密碼", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>♻️ 為什麼「所有網站都用同一組密碼」很危險？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <p style='color:#fbbf24;font-size:.93rem;font-weight:700;margin-bottom:10px;'>撞庫攻擊（Credential Stuffing）<\/p>\n  <div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;'>\n    <div style='background:rgba(239,68,68,.2);border-radius:9px;padding:11px 13px;flex:1;min-width:130px;'>\n      <p style='color:#fca5a5;font-size:.79rem;margin:0;'><strong>①<\/strong> 某個小網站被駭，帳密清單外洩<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(245,158,11,.2);border-radius:9px;padding:11px 13px;flex:1;min-width:130px;'>\n      <p style='color:#fcd34d;font-size:.79rem;margin:0;'><strong>②<\/strong> 攻擊者拿這份清單，自動去試登入其他網站<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(220,38,38,.25);border-radius:9px;padding:11px 13px;flex:1;min-width:130px;'>\n      <p style='color:#fca5a5;font-size:.79rem;margin:0;'><strong>③<\/strong> 你的 Email、社群、遊戲帳號如果用同一組，全部淪陷<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px;'>\n  <div style='background:#fef2f2;border-radius:10px;padding:13px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>🚨 Email 是最重要的帳號<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>因為<strong>所有網站的「忘記密碼」都寄到那裡<\/strong>。Email 被攻破 ≈ 全部帳號被攻破。它一定要用最強、最獨特的密碼＋雙因素驗證。<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>✅ 分級管理最實際<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>不用每個網站都不一樣。把帳號分成三級：<strong>重要<\/strong>（Email、學校、金融）各自獨立密碼；<strong>一般<\/strong>（社群、遊戲）；<strong>隨便註冊的<\/strong>可共用一組。<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.87rem;margin:0;'>📝 <strong>密碼放哪裡？<\/strong>不要寫在課本封面或手機備忘錄。可以用<strong>密碼管理員<\/strong>（瀏覽器內建的也算），或寫在紙上放家裡安全的地方——重點是<strong>不要放在別人看得到的地方<\/strong>。<\/p>\n<\/div>"}, {"id": 14, "chapter": "第三節：密碼與帳號防護", "title": "雙因素驗證", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔐 雙因素驗證（2FA）：最有效的一招<\/h2>\n<div style='background:#f1f5f9;border-radius:10px;padding:13px 16px;margin-bottom:12px;border-left:4px solid #0d9488;'>\n  <p style='color:#0f172a;font-size:.9rem;margin:0;'>📖 除了密碼之外，登入時<strong>再驗證第二種東西<\/strong>。即使密碼被偷，攻擊者也進不去。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.6rem;'>🧠<\/div>\n    <strong style='color:#1e40af;font-size:.9rem;'>你「知道」的<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>密碼、PIN 碼、圖形鎖<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.6rem;'>📱<\/div>\n    <strong style='color:#166534;font-size:.9rem;'>你「持有」的<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>手機驗證碼、驗證器 App、實體安全金鑰<\/p><\/div>\n  <div style='background:#fefce8;border-radius:12px;padding:15px;'>\n    <div style='font-size:1.6rem;'>👆<\/div>\n    <strong style='color:#854d0e;font-size:.9rem;'>你「本身」的<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>指紋、臉部辨識、虹膜<\/p><\/div>\n<\/div>\n<div style='background:#fef2f2;padding:12px 16px;border-radius:8px;border-left:4px solid #dc2626;margin-bottom:10px;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🚫 <strong>再說一次：驗證碼絕對不能給任何人。<\/strong>不管對方自稱是客服、警察、朋友還是「幫你處理帳號問題」的人。<strong>正當機構永遠不會跟你要驗證碼。<\/strong>把驗證碼給別人，等於把你的身分交出去。<\/p>\n<\/div>\n<div style='background:#f0fdf4;padding:11px 16px;border-radius:8px;border-left:4px solid #16a34a;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>✅ <strong>今天回家就做<\/strong>：打開你的 Google 帳號設定，找到「兩步驟驗證」並開啟。五分鐘的事，能擋掉絕大多數的帳號盜用。<\/p>\n<\/div>"}, {"id": 15, "chapter": "第三節：密碼與帳號防護", "title": "帳號健檢清單", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:6px;'>✅ 帳號健檢清單<\/h2>\n<p style='color:#ccfbf1;font-size:.85rem;margin-bottom:14px;'>對照下面每一項，勾勾看你做到了幾項（這也是今天的作業之一）<\/p>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;'>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ Email 帳號的密碼是<strong>獨一無二<\/strong>的<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 重要帳號都開了<strong>雙因素驗證<\/strong><\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 密碼<strong>不含<\/strong>生日、姓名、電話<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 密碼長度<strong>至少 12 個字元<\/strong><\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 沒有把密碼<strong>告訴任何人<\/strong>（含最好的朋友）<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 手機有<strong>設定鎖屏密碼<\/strong>與生物辨識<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 公用電腦用完<strong>一定登出<\/strong><\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:9px;padding:12px;'>\n    <p style='color:#fff;font-size:.84rem;margin:0;'>☐ 知道帳號被盜時<strong>該找誰、怎麼處理<\/strong><\/p><\/div>\n<\/div>\n<div style='background:rgba(0,0,0,.2);border-radius:8px;padding:12px 18px;'>\n  <p style='color:#f0fdfa;font-size:.88rem;margin:0;'>🎯 <strong>作業提醒<\/strong>：學習單上<strong>不要填寫你的真實密碼<\/strong>，只要勾選有沒有做到、寫下你打算怎麼改進。<\/p>\n<\/div>"}, {"id": 16, "chapter": "第三節：密碼與帳號防護", "title": "第三節 隨堂測驗", "bg": "purple", "quiz": "q3", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第三節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>密碼與帳號防護 ｜ 3 題<\/p>\n<\/div>"}, {"id": 17, "chapter": "第四節：惡意軟體與防護", "title": "常見惡意軟體", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🦠 常見的惡意軟體（Malware）<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.83rem;margin-bottom:12px;'>\n  <tr style='background:#991b1b;color:#fff;'>\n    <th style='padding:7px;text-align:left;width:20%;'>類型<\/th>\n    <th style='padding:7px;text-align:left;width:36%;'>它做什麼<\/th>\n    <th style='padding:7px;text-align:left;'>常見感染途徑<\/th><\/tr>\n  <tr style='background:#fef2f2;'><td style='padding:7px;'><strong>勒索軟體<\/strong><br>Ransomware<\/td><td style='padding:7px;'>把你的檔案加密鎖住，要求付贖金<\/td><td style='padding:7px;'>釣魚信附件、破解軟體<\/td><\/tr>\n  <tr><td style='padding:7px;'><strong>木馬程式<\/strong><br>Trojan<\/td><td style='padding:7px;'>偽裝成正常軟體，安裝後在背景搞破壞<\/td><td style='padding:7px;'>非官方來源的 App、外掛<\/td><\/tr>\n  <tr style='background:#fef2f2;'><td style='padding:7px;'><strong>間諜軟體<\/strong><br>Spyware<\/td><td style='padding:7px;'>偷偷記錄你的鍵盤輸入、螢幕、位置<\/td><td style='padding:7px;'>惡意 App、瀏覽器擴充功能<\/td><\/tr>\n  <tr><td style='padding:7px;'><strong>廣告軟體<\/strong><br>Adware<\/td><td style='padding:7px;'>強制彈出廣告、竄改瀏覽器首頁<\/td><td style='padding:7px;'>免費軟體的「附贈安裝」<\/td><\/tr>\n  <tr style='background:#fef2f2;'><td style='padding:7px;'><strong>殭屍網路<\/strong><br>Botnet<\/td><td style='padding:7px;'>把你的裝置變成攻擊他人的工具<\/td><td style='padding:7px;'>沒改密碼的 IoT 裝置、未更新的系統<\/td><\/tr>\n<\/table>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    💡 <strong>幾乎所有感染都從同一件事開始<\/strong>：你<strong>自己<\/strong>下載並執行了某個東西。所以最有效的防護不是防毒軟體，而是——<strong>只從官方商店或官方網站下載<\/strong>。<\/p>\n<\/div>"}, {"id": 18, "chapter": "第四節：惡意軟體與防護", "title": "備份：對抗勒索的唯一解", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>💾 備份：對抗勒索軟體最有效的方法<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#fbbf24;font-size:.93rem;font-weight:700;margin-bottom:8px;'>為什麼「付贖金」不是好選項？<\/p>\n  <ul style='color:#e2e8f0;font-size:.84rem;line-height:1.9;padding-left:20px;margin:0;'>\n    <li>付了錢<strong>不保證<\/strong>對方會給你解密金鑰<\/li>\n    <li>你會被標記成「會付錢的目標」，可能再被攻擊一次<\/li>\n    <li>贖金會資助犯罪組織，讓下一個受害者出現<\/li>\n  <\/ul>\n  <p style='color:#4ade80;font-size:.88rem;font-weight:700;margin-top:10px;'>✅ 如果你有完整的備份，勒索軟體對你就沒有籌碼。<\/p>\n<\/div>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:11px;'>\n  <div style='background:#eff6ff;border-radius:11px;padding:14px;'>\n    <strong style='color:#1e40af;font-size:.89rem;'>📋 至少兩份<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>原檔＋備份，不要只有一份<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:11px;padding:14px;'>\n    <strong style='color:#166534;font-size:.89rem;'>📍 放在不同地方<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>一份在電腦、一份在雲端或外接硬碟<\/p><\/div>\n  <div style='background:#fefce8;border-radius:11px;padding:14px;'>\n    <strong style='color:#854d0e;font-size:.89rem;'>🔄 定期檢查<\/strong>\n    <p style='font-size:.78rem;color:#475569;margin-top:5px;line-height:1.7;'>備份要真的能還原才算數，記得試一次<\/p><\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🎒 <strong>對你來說的實際做法<\/strong>：作業放<strong>學校雲端硬碟<\/strong>（自動備份＋版本紀錄），重要的專題檔案再另外存一份到隨身碟或個人雲端。期末交件前一天電腦壞掉，是每年都會發生的事。<\/p>\n<\/div>"}, {"id": 19, "chapter": "第四節：惡意軟體與防護", "title": "資安七個好習慣", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🛡️ 資安七個好習慣（把這頁存起來）<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;padding:12px;border-radius:9px;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#166534;'>① 系統與 App 保持更新<\/strong><br><span style='font-size:.78rem;color:#64748b;'>更新的主要目的就是修補安全漏洞<\/span><\/p><\/div>\n  <div style='background:#f0fdf4;padding:12px;border-radius:9px;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#166534;'>② 只從官方商店下載<\/strong><br><span style='font-size:.78rem;color:#64748b;'>破解版、外掛、來路不明的連結一律不碰<\/span><\/p><\/div>\n  <div style='background:#f0fdf4;padding:12px;border-radius:9px;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#166534;'>③ 密碼夠長、不重複、開 2FA<\/strong><br><span style='font-size:.78rem;color:#64748b;'>Email 帳號要用最強的那一組<\/span><\/p><\/div>\n  <div style='background:#f0fdf4;padding:12px;border-radius:9px;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#166534;'>④ 不點來路不明的連結與附件<\/strong><br><span style='font-size:.78rem;color:#64748b;'>要登入就自己輸入官網網址<\/span><\/p><\/div>\n  <div style='background:#f0fdf4;padding:12px;border-radius:9px;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#166534;'>⑤ 公共 Wi-Fi 不做敏感的事<\/strong><br><span style='font-size:.78rem;color:#64748b;'>關掉「自動連線到開放網路」<\/span><\/p><\/div>\n  <div style='background:#f0fdf4;padding:12px;border-radius:9px;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#166534;'>⑥ 重要檔案定期備份<\/strong><br><span style='font-size:.78rem;color:#64748b;'>至少兩份，放在不同地方<\/span><\/p><\/div>\n  <div style='background:#fffbeb;padding:12px;border-radius:9px;grid-column:span 2;'>\n    <p style='color:#334155;font-size:.84rem;margin:0;'><strong style='color:#92400e;'>⑦ 覺得怪怪的，就停下來問人<\/strong><br><span style='font-size:.78rem;color:#64748b;'>問老師、問家長、打 165。<strong>沒有人會因為你多問一句而笑你，但很多人因為不敢問而受害。<\/strong><\/span><\/p><\/div>\n<\/div>\n<div style='background:#eff6ff;padding:11px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🏆 <strong>延伸活動<\/strong>：教育部有「<strong>全民資安素養自我評量<\/strong>」線上活動，可以測驗自己的資安知識。老師會公布連結，全班一起挑戰看看誰的分數最高。<\/p>\n<\/div>"}, {"id": 20, "chapter": "第四節：惡意軟體與防護", "title": "第四節 隨堂測驗", "bg": "purple", "quiz": "q4", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第四節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>惡意軟體與防護 ｜ 3 題<\/p>\n<\/div>"}, {"id": 21, "chapter": "課堂實作", "title": "課堂實作：釣魚辨識與密碼健檢", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎯 課堂實作：釣魚辨識與帳號健檢<\/h2>\n<div style='display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:16px;'>\n    <h3 style='color:#1e40af;font-size:1rem;margin-bottom:8px;'>📋 任務 A：釣魚信件辨識學習單（分組）<\/h3>\n    <ol style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:20px;margin:0 0 10px;'>\n      <li>老師發下 <strong>5 則訊息<\/strong>（信件／簡訊／社群訊息截圖）<\/li>\n      <li>每則判斷：<strong>安全 / 可疑 / 確定是詐騙<\/strong><\/li>\n      <li>寫出<strong>你的判斷依據<\/strong>（至少 2 個線索）<\/li>\n      <li>對於可疑訊息，寫出<strong>你會怎麼查證<\/strong><\/li>\n    <\/ol>\n    <h3 style='color:#1e40af;font-size:1rem;margin:12px 0 6px;'>📋 任務 B：帳號健檢表（個人）<\/h3>\n    <p style='color:#334155;font-size:.82rem;line-height:1.85;margin:0;'>\n      對照第 15 頁的八項清單逐項勾選，寫下<strong>你打算改進的兩件事<\/strong>與<strong>什麼時候做<\/strong>。<br>\n      <strong style='color:#dc2626;'>⚠️ 不要在學習單上寫真實密碼。<\/strong><\/p>\n  <\/div>\n  <div style='background:#fffbeb;border-radius:12px;padding:16px;'>\n    <h3 style='color:#92400e;font-size:1rem;margin-bottom:8px;'>📏 評分（規準二）<\/h3>\n    <table style='width:100%;font-size:.79rem;color:#334155;border-collapse:collapse;'>\n      <tr><td style='padding:5px 0;width:14%;'><strong style='color:#059669;'>A<\/strong><\/td><td>能<strong>應用與分析<\/strong>：正確判斷並具體說明線索，提出可行的查證方式<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#2563eb;'>B<\/strong><\/td><td>能<strong>理解<\/strong>：判斷正確，能舉例說明<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#d97706;'>C<\/strong><\/td><td>能<strong>認識<\/strong>：知道這是資安議題，判斷部分正確<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#dc2626;'>D<\/strong><\/td><td>僅能認識部分內容<\/td><\/tr>\n    <\/table>\n    <div style='background:#fff;border-radius:8px;padding:10px;margin-top:10px;'>\n      <p style='font-size:.78rem;color:#475569;margin:0;line-height:1.75;'>🏆 <strong>加分<\/strong>：找一則<strong>你自己或家人真的收過<\/strong>的可疑訊息（記得先遮掉個資），分析它用了哪些手法。<\/p>\n    <\/div>\n  <\/div>\n<\/div>\n<div style='background:#fef2f2;padding:11px 16px;border-radius:8px;border-left:4px solid #dc2626;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💬 <strong>老師想說的話<\/strong>：如果你曾經被騙過、或差點被騙，那不丟臉——連專業工程師都會中招。今天學的東西不是要你變得多疑，而是希望你在按下那個按鈕之前，<strong>多給自己三秒鐘<\/strong>。<\/p>\n<\/div>"}, {"id": 22, "chapter": "課堂實作", "title": "本章重點回顧", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>📌 第 6 週 重點回顧<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;'>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>社交工程<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>攻擊「人」而非機器；利用好奇、貪、怕、急四種心理<\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>釣魚辨識<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>看網域、看急迫感、看是否要你輸入密碼；<strong>不點信裡的連結<\/strong><\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>密碼與 2FA<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>12 字元以上、不重複、開雙因素；<strong>驗證碼絕不給人<\/strong><\/p><\/div>\n  <div style='background:rgba(255,255,255,.1);border-radius:10px;padding:13px;'>\n    <strong style='color:#93c5fd;font-size:.9rem;'>惡意軟體與備份<\/strong>\n    <p style='color:#e2e8f0;font-size:.8rem;margin-top:5px;line-height:1.7;'>只從官方來源下載；有備份，勒索軟體就沒籌碼<\/p><\/div>\n<\/div>\n<div style='background:linear-gradient(90deg,rgba(13,148,136,.35),rgba(107,63,160,.35));border-radius:10px;padding:16px 20px;text-align:center;'>\n  <p style='color:#fff;font-size:1.02rem;font-weight:700;margin:0;'>覺得怪怪的，就停下來問人。多問一句，不會有人笑你。<\/p>\n  <p style='color:#cbd5e1;font-size:.82rem;margin-top:6px;'>下一週：Deepfake 與科技倫理兩難<\/p>\n<\/div>"}];window.__QUIZZES__={"q1": {"title": "第一節 隨堂測驗", "questions": [{"q": "「社交工程（Social Engineering）」攻擊的核心手法是什麼？", "options": ["用超強的電腦暴力破解防火牆", "利用人的信任、好奇、貪小便宜或恐慌心理，誘使人自己交出資料或點擊連結", "在社群媒體上發廣告", "設計一款很受歡迎的社交軟體"], "answer": 1, "explain": "社交工程攻擊的目標不是機器，而是「人」。它不需要破解任何加密，只要讓你自己按下那個按鈕。這也是為什麼資安界常說：<strong>人是最脆弱的一環<\/strong>。"}, {"q": "下列哪一種情境「最可能」是社交工程攻擊？", "options": ["同學當面向你借筆", "收到訊息說「你的帳號將於一小時內停用，請立即點擊連結驗證身分」", "學校網站公告下週段考時間", "手機提示系統有更新可安裝（從系統設定進入）"], "answer": 1, "explain": "製造「緊急」「限時」「不做就有損失」的壓力，是社交工程最典型的手法——因為人一慌張就不會仔細檢查。真正的機構不會用簡訊逼你在一小時內點連結輸入密碼。"}, {"q": "為什麼說「再強的防火牆也擋不住社交工程」？", "options": ["因為防火牆很容易壞掉", "因為社交工程是騙使用者「自己」把門打開，技術防護無法阻止合法帳號的正常操作", "因為防火牆只在白天運作", "因為社交工程不使用網路"], "answer": 1, "explain": "當你自己輸入帳號密碼、自己按下「允許」，對系統來說這都是合法操作。技術可以降低風險，但最後一道防線永遠是使用者的判斷力。"}]}, "q2": {"title": "第二節 隨堂測驗", "questions": [{"q": "收到一封看似來自銀行的信，要你點連結更新資料。最安全的做法是？", "options": ["直接點信裡的連結，快點處理比較安全", "不點信中連結，自行開啟瀏覽器輸入銀行官網網址，或打官方客服電話確認", "把信轉寄給同學問問看", "先輸入帳號密碼試試看，如果是假的就換密碼"], "answer": 1, "explain": "<strong>永遠不要點信件裡的連結去登入。<\/strong>自己輸入官網網址或用官方 App，是唯一安全的驗證方式。轉寄給別人只會擴大受害範圍。"}, {"q": "下列哪一項「不是」釣魚信件常見的特徵？", "options": ["寄件者網址與官方網域只差一兩個字母", "文字有明顯的翻譯腔或錯字", "要求你在極短時間內處理，否則帳號將被停用", "信中完全沒有任何連結或附件，只說明活動資訊"], "answer": 3, "explain": "釣魚信件的目的是讓你「點擊」或「下載」，所以幾乎一定有連結或附件。單純的資訊通知反而不是典型特徵。"}, {"q": "在手機上要看清楚一個連結真正會連去哪裡，正確做法是？", "options": ["直接點開看看", "長按連結，先預覽完整網址再決定要不要開啟", "截圖後放大看", "把連結貼給朋友請他先點"], "answer": 1, "explain": "長按（或滑鼠移上去）可以預覽真實網址。要看的是<strong>網域名稱<\/strong>：例如 <code>bank.com.tw<\/code> 和 <code>bank-tw.security-login.xyz<\/code> 完全是兩回事。"}]}, "q3": {"title": "第三節 隨堂測驗", "questions": [{"q": "下列哪一組密碼最安全？", "options": ["password123", "生日 20120315", "一句只有你知道的長句子改寫，例如 Wo3Ai#ChiRouSong2025", "自己的姓名拼音 chenxiaoming"], "answer": 2, "explain": "好密碼的三個條件：<strong>夠長<\/strong>（建議 12 字元以上）、<strong>混合大小寫數字符號<\/strong>、<strong>不含個人資訊<\/strong>。把一句自己記得住的中文句子改寫成英數符號，是既安全又好記的方法。"}, {"q": "為什麼「每個網站都用同一組密碼」非常危險？", "options": ["因為會忘記密碼", "因為只要其中一個網站資料外洩，攻擊者就能用同一組帳密登入你所有的服務", "因為網站會互相檢舉", "因為密碼會過期"], "answer": 1, "explain": "這叫做「<strong>撞庫攻擊<\/strong>」：駭客把外洩的帳密清單拿去試登入其他網站。所以重要帳號（Email、學校帳號、金融）務必使用<strong>各自獨立<\/strong>的密碼。"}, {"q": "「雙因素驗證（2FA）」的原理是什麼？", "options": ["設定兩組不同的密碼", "除了密碼之外，再加上一個你「持有」或「本身具備」的憑證（如手機驗證碼、指紋）", "兩個人一起才能登入", "每兩天換一次密碼"], "answer": 1, "explain": "2FA 結合「你知道的」（密碼）＋「你有的」（手機、驗證器）或「你是的」（指紋、臉）。即使密碼被偷，攻擊者沒有你的手機也登不進去——這是最有效的單一防護措施。"}]}, "q4": {"title": "第四節 隨堂測驗", "questions": [{"q": "「勒索軟體（Ransomware）」的典型行為是什麼？", "options": ["讓電腦跑得比較快", "把電腦裡的檔案加密鎖住，要求付款才給解鎖", "自動幫你備份檔案", "刪除瀏覽紀錄"], "answer": 1, "explain": "勒索軟體會加密你的檔案並索要贖金。但<strong>付錢不保證能拿回檔案<\/strong>，還會鼓勵犯罪。最有效的對策是<strong>平時就做好備份<\/strong>——有備份，就不必被勒索。"}, {"q": "關於備份，下列哪個做法最可靠？", "options": ["把備份存在同一台電腦的另一個資料夾", "重要檔案至少存兩份，其中一份放在不同的地方（例如雲端或外接硬碟）", "只要有雲端硬碟就不用備份", "每年備份一次就夠了"], "answer": 1, "explain": "存在同一台電腦，電腦壞了或中勒索軟體時會一起消失。基本原則是「<strong>不要把雞蛋放在同一個籃子裡<\/strong>」：至少兩份、放在不同位置，並定期檢查備份能不能還原。"}, {"q": "在公共 Wi-Fi（如車站、咖啡廳）使用網路時，較安全的做法是？", "options": ["在上面登入網路銀行處理轉帳", "避免登入重要帳號與輸入敏感資料，並確認網站是 HTTPS", "關閉手機的自動更新", "把手機設成自動連上任何開放的 Wi-Fi"], "answer": 1, "explain": "公共 Wi-Fi 可能被他人監看，也可能是刻意架設的假熱點。原則是：<strong>公共網路不做敏感的事<\/strong>；必要時改用行動網路。另外，「自動連上任何開放 Wi-Fi」這個設定務必關掉。"}]}};</script>
+</head>
+<body>
+
+<!-- 進度條 -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- 頂部導覽列 -->
+<div id="topbar">
+  <span class="tb-title" id="tb-chapter">AI 時代的數位創作者</span>
+  <span class="tb-counter" id="tb-counter">1 / 22</span>
+  <button id="btn-toc" onclick="toggleToc()">目錄 ☰</button>
+</div>
+
+<!-- 投影片主體 -->
+<div id="slide-wrap">
+  <div id="slide-frame" class="bg-navy"></div>
+</div>
+
+<!-- 底部導覽 -->
+<div id="nav-bar">
+  <button class="nav-btn" id="btn-prev" onclick="prevSlide()" disabled>← 上一頁</button>
+  <div id="slide-dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="nextSlide()">下一頁 →</button>
+</div>
+
+<!-- TOC 側邊欄 -->
+<div id="toc">
+  <h3>📑 課程目錄</h3>
+  <div id="toc-list"></div>
+</div>
+
+<!-- 測驗 Modal -->
+<div id="quiz-overlay">
+  <div id="quiz-box">
+    <div id="quiz-header">
+      <h3 id="quiz-title">測驗</h3>
+      <span class="qh-score" id="quiz-score-preview"></span>
+    </div>
+    <div id="quiz-body"></div>
+    <div id="quiz-footer">
+      <span class="qf-score" id="quiz-result"></span>
+      <div style="display:flex;gap:10px">
+        <button id="btn-submit-quiz" onclick="submitQuiz()">送出答案</button>
+        <button id="btn-close-quiz" onclick="closeQuiz()">繼續學習 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  從 Jinja2 模板取得 Flask 傳入的資料
+// ════════════════════════════════════════════════════════════
+const TOTAL_SLIDES = 22;
+const CHAPTERS_DATA = [{"name": "\u5c01\u9762", "start": 1}, {"name": "\u7b2c\u4e00\u7bc0\uff1a\u793e\u4ea4\u5de5\u7a0b", "start": 2}, {"name": "\u7b2c\u4e8c\u7bc0\uff1a\u8fa8\u8b58\u91e3\u9b5a\u653b\u64ca", "start": 7}, {"name": "\u7b2c\u4e09\u7bc0\uff1a\u5bc6\u78bc\u8207\u5e33\u865f\u9632\u8b77", "start": 12}, {"name": "\u7b2c\u56db\u7bc0\uff1a\u60e1\u610f\u8edf\u9ad4\u8207\u9632\u8b77", "start": 17}, {"name": "\u8ab2\u5802\u5be6\u4f5c", "start": 21}];
+
+// ════════════════════════════════════════════════════════════
+//  全域狀態
+// ════════════════════════════════════════════════════════════
+let slides = [];
+let quizzes = {};
+let cur = 0;
+let answered = {};
+let tocVisible = true;
+const chartInstances = {};
+
+// ════════════════════════════════════════════════════════════
+//  初始化：從 Flask API 取得資料
+// ════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const [slidesRes, quizzesRes] = await Promise.all([
+      Promise.resolve({json:()=>window.__SLIDES__}),
+      Promise.resolve({json:()=>window.__QUIZZES__})
+    ]);
+    slides = await slidesRes.json();
+    quizzes = await quizzesRes.json();
+    buildToc();
+    buildDots();
+    goTo(0);
+  } catch (e) {
+    console.error('資料載入失敗：', e);
+    document.getElementById('slide-frame').innerHTML =
+      "<div style='color:red;padding:20px'>❌ 請確認 Flask 伺服器已啟動！<br><code>python app.py</code></div>";
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立目錄（TOC）
+// ════════════════════════════════════════════════════════════
+function buildToc() {
+  const list = document.getElementById('toc-list');
+  let lastChapter = '';
+  slides.forEach((s, i) => {
+    if (s.chapter !== lastChapter) {
+      const ch = document.createElement('div');
+      ch.className = 'toc-chapter';
+      ch.textContent = s.chapter;
+      list.appendChild(ch);
+      lastChapter = s.chapter;
+    }
+    const item = document.createElement('div');
+    item.className = 'toc-item';
+    item.id = `toc-${i}`;
+    item.textContent = `${s.id}. ${s.title}`;
+    item.onclick = () => goTo(i);
+    list.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立點狀導覽
+// ════════════════════════════════════════════════════════════
+function buildDots() {
+  const wrap = document.getElementById('slide-dots');
+  const step = Math.max(1, Math.floor(slides.length / 15));
+  slides.forEach((s, i) => {
+    if (i % step !== 0 && i !== slides.length - 1) return;
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    d.title = s.title;
+    d.onclick = () => goTo(i);
+    wrap.appendChild(d);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  前往特定投影片
+// ════════════════════════════════════════════════════════════
+function goTo(idx) {
+  if (idx < 0 || idx >= slides.length) return;
+  cur = idx;
+  const s = slides[cur];
+  const frame = document.getElementById('slide-frame');
+  frame.className = '';
+  frame.classList.add('bg-' + s.bg);
+  frame.style.opacity = '0';
+  frame.innerHTML = s.html;
+  setTimeout(() => { frame.style.opacity = '1'; }, 30);
+  frame.scrollTop = 0;
+  if (s.chart) setTimeout(() => renderChart(s.chart), 80);
+  if (s.video) setTimeout(() => renderVideo(s.id, s.video), 80);
+  updateNav();
+  updateToc();
+  updateProgress();
+}
+
+// ════════════════════════════════════════════════════════════
+//  導覽：下一頁（有測驗時先觸發測驗）
+// ════════════════════════════════════════════════════════════
+function nextSlide() {
+  const s = slides[cur];
+  if (s.quiz && !answered[s.quiz]) {
+    showQuiz(s.quiz);
+  } else {
+    goTo(cur + 1);
+  }
+}
+function prevSlide() { goTo(cur - 1); }
+
+// ════════════════════════════════════════════════════════════
+//  更新導覽列、進度條、TOC
+// ════════════════════════════════════════════════════════════
+function updateNav() {
+  document.getElementById('btn-prev').disabled = cur === 0;
+  const isLast = cur === slides.length - 1;
+  const hasUnansweredQuiz = slides[cur].quiz && !answered[slides[cur].quiz];
+  document.getElementById('btn-next').disabled = isLast && !hasUnansweredQuiz;
+  document.getElementById('tb-chapter').textContent = slides[cur].chapter + '：' + slides[cur].title;
+  document.getElementById('tb-counter').textContent = `${cur + 1} / ${slides.length}`;
+  document.querySelectorAll('.dot').forEach(d => {
+    d.classList.remove('active');
+    const i = parseInt(d.id.replace('dot-', ''));
+    if (cur === i) d.classList.add('active');
+    else if (cur > i) d.classList.add('done');
+    else d.classList.remove('done');
+  });
+}
+
+function updateProgress() {
+  const pct = ((cur + 1) / slides.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function updateToc() {
+  document.querySelectorAll('.toc-item').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === cur) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+    else if (i < cur) el.classList.add('done');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  切換 TOC 顯示
+// ════════════════════════════════════════════════════════════
+function toggleToc() {
+  tocVisible = !tocVisible;
+  document.getElementById('toc').classList.toggle('hidden', !tocVisible);
+  document.getElementById('slide-wrap').classList.toggle('toc-hidden', !tocVisible);
+  document.getElementById('nav-bar').classList.toggle('toc-hidden', !tocVisible);
+}
+
+// ════════════════════════════════════════════════════════════
+//  鍵盤快捷鍵
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+
+// ════════════════════════════════════════════════════════════
+//  影片渲染（YouTube 嵌入 / 搜尋按鈕 / 兩者兼具）
+//  嵌入使用 youtube-nocookie.com（不追蹤、不推薦其他影片、無個人化廣告）
+//  參數 rel=0（結束不推薦別家頻道）、modestbranding=1（隱藏 YT logo）
+// ════════════════════════════════════════════════════════════
+function _ytEmbedHtml(vid, title) {
+  // 使用 youtube-nocookie.com — YouTube 官方「隱私強化」網域，更乾淨
+  return `
+    <div class="video-embed">
+      <iframe src="https://www.youtube-nocookie.com/embed/${vid}?rel=0&modestbranding=1&iv_load_policy=3&fs=1"
+        allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        loading="lazy"></iframe>
+    </div>
+    <p style="text-align:center;font-size:.72rem;color:rgba(255,255,255,.55);margin-top:6px">▶ ${title}</p>`;
+}
+function _ytSearchHtml(query, title, desc) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  return `
+    <a href="${url}" target="_blank" class="video-search-btn">
+      <span class="yt-icon">▶️</span>
+      <span>
+        <strong>${title}</strong><br>
+        <small style="font-weight:400;opacity:.8">${desc}</small>
+      </span>
+    </a>`;
+}
+
+function renderVideo(slideId, video) {
+  const el = document.getElementById(`video-section-${slideId}`);
+  if (!el) return;
+  if (video.type === 'youtube') {
+    el.innerHTML = _ytEmbedHtml(video.id, video.title);
+  } else if (video.type === 'both') {
+    // 嵌入播放器 + 底下附「找不到？搜尋更多」備援
+    el.innerHTML = `
+      ${_ytEmbedHtml(video.id, video.title)}
+      <div style="margin-top:10px;">
+        ${_ytSearchHtml(video.query, video.search_title || '想看更多相關影片', video.desc || '在 YouTube 搜尋同主題其他教學')}
+      </div>`;
+  } else {
+    el.innerHTML = _ytSearchHtml(video.query, video.title, video.desc);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  圖表渲染（Chart.js，防止重複建立）
+// ════════════════════════════════════════════════════════════
+function renderChart(type) {
+  if (type === 'formats') {
+    const el = document.getElementById('chart-formats');
+    if (!el || chartInstances['formats']) return;
+    chartInstances['formats'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['JPEG（照片）', 'PNG（圖示）', 'PNG（截圖）', 'SVG（Logo）'],
+        datasets: [{
+          label: '典型檔案大小（KB）',
+          data: [150, 400, 1200, 8],
+          backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.raw} KB` } }
+        },
+        scales: {
+          y: {
+            type: 'logarithmic',
+            title: { display: true, text: '檔案大小 KB（對數刻度）', color:'#6b7280', font:{size:10} },
+            ticks: { color:'#6b7280', font:{size:10}, callback: v => v + ' KB' }
+          },
+          x: { ticks: { color:'#374151', font:{size:11} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+
+  if (type === 'ai_tools') {
+    const el = document.getElementById('chart-ai-tools');
+    if (!el || chartInstances['ai_tools']) return;
+    chartInstances['ai_tools'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['ChatGPT GPT-4o', 'Canva AI', 'Midjourney', 'Adobe Firefly'],
+        datasets: [
+          {
+            label: '圖像品質',
+            data: [4, 3, 5, 4],
+            backgroundColor: 'rgba(107,63,160,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '操作難易',
+            data: [5, 5, 2, 4],
+            backgroundColor: 'rgba(13,148,136,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '授權安全',
+            data: [3, 4, 3, 5],
+            backgroundColor: 'rgba(245,158,11,.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font:{size:10}, padding:8 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}：${'⭐'.repeat(ctx.raw)}` } }
+        },
+        scales: {
+          y: {
+            min: 0, max: 5,
+            ticks: { color:'#6b7280', font:{size:10}, stepSize: 1, callback: v => v + '⭐' }
+          },
+          x: { ticks: { color:'#374151', font:{size:10} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  測驗功能
+// ════════════════════════════════════════════════════════════
+let curQuizId = null;
+let quizUserAnswers = {};
+
+function showQuiz(qId) {
+  curQuizId = qId;
+  quizUserAnswers = {};
+  const q = quizzes[qId];
+  document.getElementById('quiz-title').textContent = q.title;
+  document.getElementById('quiz-score-preview').textContent = q.questions.length + ' 題';
+  document.getElementById('quiz-result').textContent = '';
+  document.getElementById('btn-submit-quiz').style.display = '';
+  document.getElementById('btn-close-quiz').style.display = 'none';
+
+  const body = document.getElementById('quiz-body');
+  body.innerHTML = '';
+  q.questions.forEach((question, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.innerHTML = `<div class="q-text">${qi+1}. ${question.q}</div>
+      <div class="q-options" id="opts-${qi}">
+        ${question.options.map((opt, oi) =>
+          `<div class="q-opt" id="opt-${qi}-${oi}" onclick="selectOpt(${qi},${oi})">${opt}</div>`
+        ).join('')}
+      </div>`;
+    body.appendChild(div);
+  });
+  document.getElementById('quiz-overlay').classList.add('show');
+}
+
+function selectOpt(qi, oi) {
+  quizUserAnswers[qi] = oi;
+  const q = quizzes[curQuizId];
+  for (let o = 0; o < q.questions[qi].options.length; o++) {
+    document.getElementById(`opt-${qi}-${o}`).classList.toggle('selected', o === oi);
+  }
+}
+
+function submitQuiz() {
+  const q = quizzes[curQuizId];
+  let correct = 0;
+  q.questions.forEach((question, qi) => {
+    const chosen = quizUserAnswers[qi];
+    const opts = document.getElementById(`opts-${qi}`);
+    for (let o = 0; o < question.options.length; o++) {
+      const el = document.getElementById(`opt-${qi}-${o}`);
+      el.onclick = null;
+      el.classList.remove('selected');
+      if (o === question.answer) el.classList.add('correct');
+      else if (o === chosen && chosen !== question.answer) el.classList.add('wrong');
+    }
+    if (!opts.querySelector('.q-exp')) {
+      const exp = document.createElement('div');
+      exp.className = 'q-exp';
+      exp.innerHTML = '💡 ' + question.explain;   // 解析內容中的 <strong> 等標記
+      opts.after(exp);
+    }
+    if (chosen === question.answer) correct++;
+  });
+  const pct = Math.round((correct / q.questions.length) * 100);
+  document.getElementById('quiz-result').textContent = `得分：${correct}/${q.questions.length}（${pct}%）`;
+  document.getElementById('btn-submit-quiz').style.display = 'none';
+  document.getElementById('btn-close-quiz').style.display = 'inline-block';
+  answered[curQuizId] = true;
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('show');
+  goTo(cur + 1);
+}
+
+// ════════════════════════════════════════════════════════════
+//  啟動
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>

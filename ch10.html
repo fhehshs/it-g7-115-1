@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 時代的數位創作者 — 互動教學</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════
+   CSS 變數（全站顏色主題）
+   ══════════════════════════════════════ */
+:root {
+  --navy:#1E3A5F; --teal:#0D9488; --sage:#6B8F8F;
+  --purple:#6B3FA0; --gold:#F59E0B; --light:#F1F5F9; --white:#fff;
+  --text:#111827; --muted:#374151;
+  --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Noto Sans TC',sans-serif;background:#0f172a;color:var(--text);overflow:hidden;height:100vh}
+
+/* ═══ 進度條 ═══ */
+#progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));transition:width .4s;z-index:200}
+
+/* ═══ 頂部導覽 ═══ */
+#topbar{position:fixed;top:3px;left:0;right:0;height:48px;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);display:flex;align-items:center;padding:0 16px;gap:12px;z-index:100;border-bottom:1px solid rgba(255,255,255,.08)}
+#topbar .tb-title{color:#fff;font-size:.85rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar .tb-counter{color:var(--gold);font-size:.8rem;white-space:nowrap}
+#btn-toc{background:none;border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-size:.75rem;cursor:pointer}
+#btn-toc:hover{background:rgba(255,255,255,.1)}
+
+/* ═══ 投影片容器 ═══ */
+#slide-wrap{position:fixed;top:51px;left:280px;right:0;bottom:64px;overflow:hidden;transition:left .3s}
+#slide-wrap.toc-hidden{left:0}
+#slide-frame{width:100%;height:100%;padding:20px 24px;overflow-y:auto;transition:opacity .2s}
+
+/* ═══ 投影片背景 ═══ */
+.bg-navy{background:linear-gradient(135deg,#1E3A5F 0%,#0f2340 100%)}
+.bg-teal{background:linear-gradient(135deg,#0D9488 0%,#065f46 100%)}
+.bg-sage{background:linear-gradient(135deg,#6B8F8F 0%,#4a6b6b 100%)}
+.bg-purple{background:linear-gradient(135deg,#6B3FA0 0%,#3b1f6b 100%)}
+.bg-white{background:#f8fafc}
+
+/* ═══ 底部導覽按鈕 ═══ */
+#nav-bar{position:fixed;bottom:0;left:280px;right:0;height:64px;background:rgba(15,23,42,.95);display:flex;align-items:center;justify-content:center;gap:16px;transition:left .3s;z-index:100}
+#nav-bar.toc-hidden{left:0}
+.nav-btn{background:var(--purple);color:#fff;border:none;padding:10px 28px;border-radius:24px;font-size:.9rem;cursor:pointer;font-weight:600;transition:all .2s}
+.nav-btn:hover{background:#5a3290;transform:translateY(-1px)}
+.nav-btn:disabled{background:#334155;cursor:not-allowed;transform:none}
+#slide-dots{display:flex;gap:6px;align-items:center;max-width:300px;flex-wrap:wrap;justify-content:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#334155;cursor:pointer;transition:all .2s}
+.dot.active{background:var(--gold);transform:scale(1.3)}
+.dot.done{background:var(--teal)}
+
+/* ═══ TOC 側邊欄 ═══ */
+#toc{position:fixed;top:51px;left:0;width:280px;bottom:0;background:#0f172a;border-right:1px solid rgba(255,255,255,.08);overflow-y:auto;z-index:50;transition:transform .3s}
+#toc.hidden{transform:translateX(-100%)}
+#toc h3{padding:14px 16px 10px;color:var(--gold);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid rgba(255,255,255,.06)}
+.toc-item{padding:7px 16px;font-size:.78rem;color:#cbd5e1;cursor:pointer;border-left:3px solid transparent;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc-item:hover{color:#fff;background:rgba(255,255,255,.05)}
+.toc-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(245,158,11,.08)}
+.toc-item.done{color:var(--teal)}
+.toc-chapter{padding:8px 16px 4px;font-size:.7rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* ═══ 封面樣式 ═══ */
+.cover-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 130px);text-align:center;padding:20px}
+.cover-badge{background:rgba(107,63,160,.3);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:.8rem;letter-spacing:.08em;margin-bottom:20px;border:1px solid rgba(107,63,160,.4)}
+.cover-title{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;color:#fff;line-height:1.2;margin-bottom:12px}
+.cover-sub{font-size:clamp(.9rem,1.5vw,1.1rem);color:#94a3b8;margin-bottom:24px;max-width:500px}
+.cover-tags{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px}
+.tag{background:rgba(255,255,255,.1);color:#cbd5e1;padding:5px 14px;border-radius:14px;font-size:.78rem;border:1px solid rgba(255,255,255,.15)}
+.cover-meta{font-size:.75rem;color:#475569}
+
+/* ═══ 投影片通用 ═══ */
+.slide-inner{padding:8px 4px}
+.slide-title{font-size:clamp(1.1rem,2.2vw,1.5rem);font-weight:700;margin-bottom:12px;color:var(--text)}
+.slide-desc{font-size:.88rem;color:var(--muted);margin-bottom:14px}
+.slide-note{font-size:.82rem;color:var(--muted);margin-top:12px;padding:8px 12px;background:rgba(0,0,0,.05);border-radius:8px}
+.tip-box{background:linear-gradient(135deg,rgba(107,63,160,.1),rgba(30,58,95,.1));border:1px solid rgba(107,63,160,.25);border-radius:10px;padding:12px 16px;font-size:.83rem;color:var(--text);margin-top:12px;line-height:1.6}
+
+/* ═══ 卡片格 ═══ */
+.card-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.card-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.info-card{background:rgba(255,255,255,.12);border-radius:10px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.15)}
+.card-icon{font-size:1.6rem;margin-bottom:6px}
+.card-label{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:4px}
+.card-desc{font-size:.72rem;color:rgba(255,255,255,.92);line-height:1.4}
+
+/* ═══ 位元視覺 ═══ */
+.bit-demo{background:rgba(255,255,255,.06);border-radius:12px;padding:14px}
+.bit-box{padding:8px 16px;border-radius:10px;font-weight:700;font-size:.9rem;text-align:center}
+.bit-off{background:rgba(239,68,68,.25);border:2px solid rgba(239,68,68,.5);color:#fca5a5}
+.bit-on{background:rgba(34,197,94,.25);border:2px solid rgba(34,197,94,.5);color:#86efac}
+
+/* ═══ 平台表格 ═══ */
+.platform-table{border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:10px}
+.pt-header{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;background:var(--navy);color:#fff;padding:8px 12px;font-size:.75rem;font-weight:600;gap:8px}
+.pt-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;padding:8px 12px;font-size:.78rem;gap:8px;border-top:1px solid #f1f5f9;align-items:center}
+.pt-row:nth-child(even){background:#f8fafc}
+.pt-name{font-weight:600;color:var(--navy)}
+
+/* ═══ 四層架構 ═══ */
+.layer-stack{display:flex;flex-direction:column;gap:2px;margin:8px 0}
+.layer{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.15)}
+.layer-hw{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.6);border-width:2px}
+.layer-os{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.6);border-width:2px}
+.layer-app{background:rgba(13,148,136,.12);border-color:rgba(13,148,136,.6);border-width:2px}
+.layer-user{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.6);border-width:2px}
+.layer-num{width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.18);color:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.layer-name{font-weight:700;font-size:.88rem;color:#1e293b;margin-bottom:2px}
+.layer-detail{font-size:.75rem;color:#475569}
+.layer-arrow{text-align:center;color:#64748b;font-size:.9rem;margin:-4px 0}
+
+/* ═══ 儲存單位 ═══ */
+.units-grid{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.unit-row{display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0}
+.unit-small{border-color:rgba(59,130,246,.5);background:rgba(59,130,246,.08)}
+.unit-large{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08)}
+.unit-name{font-size:.82rem;font-weight:700;color:#1e293b;min-width:150px}
+.unit-eq{font-size:.78rem;color:#475569}
+
+/* ═══ 資料表格 ═══ */
+.info-table{width:100%;border-collapse:collapse;font-size:.8rem;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0}
+.info-table th,.info-table td{padding:8px 12px;text-align:left;border-bottom:1px solid #f1f5f9}
+.table-header{background:var(--navy);color:#fff}
+.table-header th{color:#fff;font-weight:600;font-size:.78rem;padding:9px 12px}
+.tr-highlight{background:rgba(13,148,136,.08)}
+.info-table tr:last-child td{border-bottom:none}
+.td-center{text-align:center}
+
+/* ═══ 功能卡片 ═══ */
+.func-card{display:flex;align-items:center;gap:10px;background:#f8fafc;border-radius:10px;padding:10px 12px;border:1px solid #e2e8f0}
+.fc-num{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0}
+.fc-title{font-size:.82rem;font-weight:700;color:var(--navy);margin-bottom:3px}
+.fc-desc{font-size:.75rem;color:var(--muted);line-height:1.4}
+
+/* ═══ Fact Box ═══ */
+.fact-box{background:rgba(255,255,255,.08);border-radius:10px;padding:12px;margin-bottom:10px}
+.fact-box p{font-size:.8rem;color:rgba(255,255,255,.95);margin-bottom:6px;line-height:1.5}
+
+/* ═══ 圖表 ═══ */
+.chart-wrap-full{width:100%;margin-bottom:10px}
+
+/* ═══ 作業 ═══ */
+.task-single{background:rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;border:1px solid rgba(255,255,255,.15);margin-bottom:14px}
+.task-title{font-size:.82rem;font-weight:700;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,.1)}
+.task-item{font-size:.78rem;color:rgba(255,255,255,.8);margin-bottom:7px;padding-left:4px;line-height:1.4}
+.submit-box{display:flex;align-items:center;gap:14px;background:rgba(13,148,136,.2);border:1px solid rgba(13,148,136,.4);border-radius:12px;padding:14px 16px}
+.submit-icon{font-size:2rem;flex-shrink:0}
+.submit-title{font-size:.88rem;font-weight:700;color:#fff;margin-bottom:4px}
+.submit-desc{font-size:.78rem;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ═══ 影片區塊 ═══ */
+.video-section{margin:10px 0}
+.video-embed{border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9;width:100%;max-width:560px;margin:0 auto}
+.video-embed iframe{width:100%;height:100%;border:none;display:block}
+.video-search-btn{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:12px 20px;border-radius:12px;font-size:.85rem;font-weight:600;transition:all .2s;width:fit-content;margin:0 auto}
+.video-search-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(220,38,38,.4)}
+.video-search-btn .yt-icon{font-size:1.2rem}
+
+/* ═══ 測驗 Modal ═══ */
+#quiz-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+#quiz-overlay.show{display:flex}
+#quiz-box{background:#fff;border-radius:16px;max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#quiz-header{background:var(--purple);color:#fff;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center}
+#quiz-header h3{font-size:.95rem;font-weight:700}
+#quiz-header .qh-score{background:rgba(255,255,255,.2);padding:4px 12px;border-radius:12px;font-size:.78rem}
+#quiz-body{padding:16px 20px;overflow-y:auto;flex:1}
+.quiz-q{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #f1f5f9}
+.quiz-q:last-child{border-bottom:none}
+.q-text{font-size:.9rem;font-weight:600;color:var(--navy);margin-bottom:10px;line-height:1.4}
+.q-options{display:flex;flex-direction:column;gap:7px}
+.q-opt{padding:9px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;font-size:.82rem;transition:all .15s;line-height:1.3}
+.q-opt:hover{border-color:var(--purple);background:#faf5ff}
+.q-opt.selected{border-color:var(--navy);background:rgba(30,58,95,.05)}
+.q-opt.correct{border-color:#10b981;background:#f0fdf4;color:#065f46}
+.q-opt.wrong{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.q-exp{font-size:.78rem;color:#374151;background:#f8fafc;padding:8px 12px;border-radius:8px;margin-top:8px;border-left:3px solid var(--purple);line-height:1.5}
+#quiz-footer{padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;background:#fff;border-radius:0 0 16px 16px}
+#quiz-footer .qf-score{font-size:.88rem;font-weight:600;color:var(--navy)}
+#btn-submit-quiz,#btn-close-quiz{padding:8px 20px;border-radius:10px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .15s}
+#btn-submit-quiz{background:var(--navy);color:#fff}
+#btn-submit-quiz:hover{background:#0f2340}
+#btn-close-quiz{background:var(--purple);color:#fff;display:none}
+#btn-close-quiz:hover{background:#5a3290}
+</style>
+<script>window.__SLIDES__=[{"id": 1, "chapter": "封面", "title": "成果發表與學期總結", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:24px 20px;'>\n  <div style='font-size:66px;margin-bottom:14px;'>🏆<\/div>\n  <h1 style='font-size:2.5rem;font-weight:900;color:#fff;margin-bottom:10px;'>成果發表與學期總結<\/h1>\n  <h2 style='font-size:1.18rem;font-weight:400;color:#93c5fd;margin-bottom:22px;'>Presentation &amp; Semester Wrap-up<\/h2>\n  <div style='display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;'>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🎤 上台技巧<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>🤝 同儕互評<\/span>\n    <span style='background:rgba(255,255,255,0.15);color:#e0f2fe;padding:8px 18px;border-radius:20px;'>📚 學期總複習<\/span>\n  <\/div>\n  <p style='color:#bfdbfe;font-size:1.05rem;'>七年級第一學期 ｜ 第 13–14 週<\/p>\n<\/div>"}, {"id": 2, "chapter": "第一節：怎麼上台講", "title": "五分鐘怎麼安排", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>⏱️ 五分鐘發表，怎麼安排？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <div style='display:flex;gap:6px;align-items:stretch;'>\n    <div style='background:rgba(59,130,246,.25);border-radius:9px;padding:12px;flex:1;'>\n      <div style='color:#93c5fd;font-size:.78rem;font-weight:700;'>0:00–0:40<\/div>\n      <strong style='color:#fff;font-size:.85rem;'>開場<\/strong>\n      <p style='color:#cbd5e1;font-size:.74rem;margin-top:4px;'>組員介紹＋我們要回答的問題是什麼<\/p><\/div>\n    <div style='background:rgba(13,148,136,.25);border-radius:9px;padding:12px;flex:1;'>\n      <div style='color:#5eead4;font-size:.78rem;font-weight:700;'>0:40–1:40<\/div>\n      <strong style='color:#fff;font-size:.85rem;'>它是什麼<\/strong>\n      <p style='color:#cbd5e1;font-size:.74rem;margin-top:4px;'>用一個比喻或圖解說明技術原理<\/p><\/div>\n    <div style='background:rgba(245,158,11,.25);border-radius:9px;padding:12px;flex:1.3;'>\n      <div style='color:#fcd34d;font-size:.78rem;font-weight:700;'>1:40–3:20<\/div>\n      <strong style='color:#fff;font-size:.85rem;'>現況與案例<\/strong>\n      <p style='color:#cbd5e1;font-size:.74rem;margin-top:4px;'>台灣在地案例＋數據（說出年份與來源）<\/p><\/div>\n    <div style='background:rgba(168,85,247,.25);border-radius:9px;padding:12px;flex:1.2;'>\n      <div style='color:#d8b4fe;font-size:.78rem;font-weight:700;'>3:20–4:30<\/div>\n      <strong style='color:#fff;font-size:.85rem;'>兩面與觀點<\/strong>\n      <p style='color:#cbd5e1;font-size:.74rem;margin-top:4px;'>好處、疑慮，然後回答核心問題<\/p><\/div>\n    <div style='background:rgba(34,197,94,.25);border-radius:9px;padding:12px;flex:.8;'>\n      <div style='color:#86efac;font-size:.78rem;font-weight:700;'>4:30–5:00<\/div>\n      <strong style='color:#fff;font-size:.85rem;'>收尾<\/strong>\n      <p style='color:#cbd5e1;font-size:.74rem;margin-top:4px;'>一句話總結＋謝謝聆聽<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    ⏰ <strong>五分鐘比你想的短<\/strong>：大約只夠講 6–8 頁。所以<strong>試講一定要計時<\/strong>，超時就刪內容，不要靠加快語速。<br>\n    <span style='color:#64748b;font-size:.83rem;'>刪的時候，先刪「補充說明」，保留「核心問題、案例、觀點」。<\/span><\/p>\n<\/div>"}, {"id": 3, "chapter": "第一節：怎麼上台講", "title": "講得好的六個技巧", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎤 讓人聽得懂的六個技巧<\/h2>\n<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#1e40af;font-size:.88rem;'>① 先給地圖<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.7;'>開場先說「我們要回答的問題是……接下來會分三部分說明」。聽眾有了地圖才不會迷路。<\/p><\/div>\n  <div style='background:#f0fdf4;padding:13px;border-radius:10px;'>\n    <strong style='color:#166534;font-size:.88rem;'>② 用比喻<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.7;'>「雲端就是把東西放在別人家的倉庫，需要時再去拿」——比講定義有效十倍。<\/p><\/div>\n  <div style='background:#fefce8;padding:13px;border-radius:10px;'>\n    <strong style='color:#854d0e;font-size:.88rem;'>③ 講具體的例子<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.7;'>「YouBike 每個車柱都會回報有沒有車」比「IoT 應用廣泛」好懂得多。<\/p><\/div>\n  <div style='background:#f5f3ff;padding:13px;border-radius:10px;'>\n    <strong style='color:#5b21b6;font-size:.88rem;'>④ 眼睛看人，不要看螢幕<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.7;'>掃視教室的不同區域。緊張的話，先看你熟悉的同學。<\/p><\/div>\n  <div style='background:#ecfeff;padding:13px;border-radius:10px;'>\n    <strong style='color:#155e75;font-size:.88rem;'>⑤ 講慢一點，敢停頓<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.7;'>緊張時語速會自動變快。講完一個重點<strong>停 1 秒<\/strong>，聽眾才跟得上。<\/p><\/div>\n  <div style='background:#fef2f2;padding:13px;border-radius:10px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>⑥ 不要念稿<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.7;'>手上只帶<strong>關鍵字小抄<\/strong>（每頁 3–5 個詞），逼自己用自己的話講。<\/p><\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💚 <strong>會緊張是正常的<\/strong>：連專業講者上台前心跳都會加快。緊張不代表你會講不好——多數人的緊張，台下其實看不太出來。<strong>練習過的內容，身體會記得。<\/strong><\/p>\n<\/div>"}, {"id": 4, "chapter": "第一節：怎麼上台講", "title": "面對提問", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>❓ 面對提問：三種情境的標準回應<\/h2>\n<div style='display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;border-radius:11px;padding:14px;border-left:5px solid #16a34a;'>\n    <strong style='color:#166534;font-size:.92rem;'>情境一：你知道答案<\/strong>\n    <p style='font-size:.82rem;color:#475569;margin-top:5px;line-height:1.8;'>\n      先<strong>重述一次問題<\/strong>（確認自己聽對，也讓全班聽清楚），再回答。<br>\n      <span style='color:#0d9488;'>「你是問這個數據是哪一年的對嗎？這是 ○○ 機構 ○○ 年發布的。」<\/span><\/p><\/div>\n  <div style='background:#fefce8;border-radius:11px;padding:14px;border-left:5px solid #eab308;'>\n    <strong style='color:#854d0e;font-size:.92rem;'>情境二：你不知道答案<\/strong>\n    <p style='font-size:.82rem;color:#475569;margin-top:5px;line-height:1.8;'>\n      <strong>誠實說出來<\/strong>，並說明你打算怎麼處理。<br>\n      <span style='color:#0d9488;'>「這部分我們沒有查到，我可以回去查了之後跟你說。」<\/span><br>\n      <span style='color:#dc2626;font-size:.78rem;'>❌ 千萬不要編。編錯了比不知道嚴重得多。<\/span><\/p><\/div>\n  <div style='background:#eff6ff;border-radius:11px;padding:14px;border-left:5px solid #2563eb;'>\n    <strong style='color:#1e40af;font-size:.92rem;'>情境三：對方不同意你的觀點<\/strong>\n    <p style='font-size:.82rem;color:#475569;margin-top:5px;line-height:1.8;'>\n      先<strong>承認對方的角度<\/strong>，再說明你的依據。<br>\n      <span style='color:#0d9488;'>「你說得有道理，這確實是一個風險。我們會這樣主張，是因為○○資料顯示……不過這題本來就沒有標準答案。」<\/span><\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🛡️ <strong>事前準備法<\/strong>：試講時，請組員扮演聽眾提出 3 個問題。你會發現大部分的提問都可以事先預測到——<strong>準備過的提問，就不再是意外<\/strong>。<\/p>\n<\/div>"}, {"id": 5, "chapter": "第一節：怎麼上台講", "title": "發表前的最後準備", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:14px;'>🎬 發表前 10 分鐘的最後準備<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;'>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <p style='color:#fff;font-size:.85rem;margin:0;'>☐ 簡報<strong>已開好<\/strong>並確認能正常投影<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <p style='color:#fff;font-size:.85rem;margin:0;'>☐ 確認<strong>誰講哪幾頁<\/strong>、怎麼交接<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <p style='color:#fff;font-size:.85rem;margin:0;'>☐ 手上有<strong>關鍵字小抄<\/strong>（不是逐字稿）<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <p style='color:#fff;font-size:.85rem;margin:0;'>☐ 決定誰負責<strong>回答提問<\/strong>（可輪流）<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <p style='color:#fff;font-size:.85rem;margin:0;'>☐ 喝口水、深呼吸三次<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:13px;'>\n    <p style='color:#fff;font-size:.85rem;margin:0;'>☐ 想好<strong>第一句話<\/strong>要說什麼<\/p><\/div>\n<\/div>\n<div style='background:rgba(0,0,0,.22);border-radius:9px;padding:14px 18px;'>\n  <p style='color:#f0fdfa;font-size:.9rem;margin:0;line-height:1.9;'>\n    💚 <strong>老師想說的<\/strong>：這不是比賽，沒有人要為難你。台下坐的是聽了你三週在做什麼的同學。<br>\n    <strong>你只要把你真的查到、真的想過的東西講出來，就夠了。<\/strong><\/p>\n<\/div>"}, {"id": 6, "chapter": "第一節：怎麼上台講", "title": "第一節 隨堂測驗", "bg": "purple", "quiz": "q1", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第一節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>上台發表 ｜ 3 題<\/p>\n<\/div>"}, {"id": 7, "chapter": "第二節：聽眾與同儕互評", "title": "當個好聽眾", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>👂 當個好聽眾，也是這節課的評分項目<\/h2>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;border-top:5px solid #16a34a;'>\n    <h3 style='color:#166534;font-size:.98rem;margin-bottom:8px;'>✅ 好聽眾這樣做<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li>眼睛看著台上，不做自己的事<\/li>\n      <li>邊聽邊記下 <strong>1 個學到的點<\/strong>與 <strong>1 個問題<\/strong><\/li>\n      <li>發問時針對<strong>內容<\/strong>，不針對人<\/li>\n      <li>報告結束時給掌聲<\/li>\n    <\/ul>\n  <\/div>\n  <div style='background:#fef2f2;border-radius:12px;padding:15px;border-top:5px solid #dc2626;'>\n    <h3 style='color:#991b1b;font-size:.98rem;margin-bottom:8px;'>❌ 這些行為會扣態度分<\/h3>\n    <ul style='color:#334155;font-size:.82rem;line-height:1.9;padding-left:18px;margin:0;'>\n      <li>低頭滑手機、寫別科的作業<\/li>\n      <li>台下聊天、竊笑、模仿講者<\/li>\n      <li>故意問刁難的問題讓對方難堪<\/li>\n      <li>只在自己組報告時才專心<\/li>\n    <\/ul>\n  <\/div>\n<\/div>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;margin-bottom:10px;'>\n  <p style='color:#374151;font-size:.89rem;margin:0;line-height:1.85;'>\n    🪞 <strong>換位思考<\/strong>：你希望自己上台時，台下是什麼樣子？<strong>先當那樣的聽眾。<\/strong>一個班的發表氣氛好不好，是全班一起決定的。<\/p>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💡 <strong>好問題的句型<\/strong>：「你們提到○○，我想問……」「這個數據是哪一年的？」「如果換成○○情況，還適用嗎？」——具體、針對內容、幫對方把想法講得更清楚。<\/p>\n<\/div>"}, {"id": 8, "chapter": "第二節：聽眾與同儕互評", "title": "怎麼寫有用的回饋", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>✍️ 怎麼寫出「有用」的回饋？<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:17px;margin-bottom:12px;'>\n  <p style='color:#fbbf24;font-size:.93rem;font-weight:700;margin-bottom:10px;'>三明治回饋法：優點 → 建議 → 鼓勵<\/p>\n  <div style='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;'>\n    <div style='background:rgba(34,197,94,.2);border-radius:9px;padding:12px;'>\n      <strong style='color:#86efac;font-size:.86rem;'>① 具體的優點<\/strong>\n      <p style='color:#cbd5e1;font-size:.77rem;margin-top:5px;line-height:1.7;'>「台灣 YouBike 的例子很具體，我一下就懂了」<\/p><\/div>\n    <div style='background:rgba(245,158,11,.2);border-radius:9px;padding:12px;'>\n      <strong style='color:#fcd34d;font-size:.86rem;'>② 可執行的建議<\/strong>\n      <p style='color:#cbd5e1;font-size:.77rem;margin-top:5px;line-height:1.7;'>「第 4 頁的圖表沒標單位，建議補上」<\/p><\/div>\n    <div style='background:rgba(59,130,246,.2);border-radius:9px;padding:12px;'>\n      <strong style='color:#93c5fd;font-size:.86rem;'>③ 真誠的鼓勵<\/strong>\n      <p style='color:#cbd5e1;font-size:.77rem;margin-top:5px;line-height:1.7;'>「看得出來你們真的有去查資料，辛苦了」<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:10px;'>\n  <div style='background:#fef2f2;border-radius:11px;padding:13px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>❌ 沒用的回饋<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「很好」「不錯」「有點無聊」「還可以」——對方拿到之後，完全不知道要改什麼。<\/p><\/div>\n  <div style='background:#f0fdf4;border-radius:11px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>✅ 有用的回饋<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>指出<strong>哪一頁、哪一句、為什麼<\/strong>、<strong>可以怎麼改<\/strong>。越具體，對方越用得上。<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>🎯 <strong>互評的目的不是打分數，是幫對方進步<\/strong>。你寫下的建議，可能就是他下次報告變好的原因。<\/p>\n<\/div>"}, {"id": 9, "chapter": "第二節：聽眾與同儕互評", "title": "同儕互評表", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📋 同儕互評表（每組聽完都要填）<\/h2>\n<div style='background:#eff6ff;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <table style='width:100%;border-collapse:collapse;font-size:.83rem;'>\n    <tr style='background:#1e40af;color:#fff;'>\n      <th style='padding:7px;text-align:left;width:34%;'>評分項目<\/th>\n      <th style='padding:7px;text-align:center;width:26%;'>評分（1–5）<\/th>\n      <th style='padding:7px;text-align:left;'>具體說明（必填）<\/th><\/tr>\n    <tr><td style='padding:7px;color:#334155;'>內容讓我聽懂了嗎<\/td><td style='padding:7px;text-align:center;color:#94a3b8;'>☆☆☆☆☆<\/td><td style='padding:7px;color:#94a3b8;'>哪一段最清楚／哪一段沒聽懂<\/td><\/tr>\n    <tr style='background:#f8fafc;'><td style='padding:7px;color:#334155;'>有沒有標明資料來源<\/td><td style='padding:7px;text-align:center;color:#94a3b8;'>☆☆☆☆☆<\/td><td style='padding:7px;color:#94a3b8;'>有沒有哪個數據沒說年份<\/td><\/tr>\n    <tr><td style='padding:7px;color:#334155;'>簡報版面清楚嗎<\/td><td style='padding:7px;text-align:center;color:#94a3b8;'>☆☆☆☆☆<\/td><td style='padding:7px;color:#94a3b8;'>哪一頁做得好／哪一頁太擠<\/td><\/tr>\n    <tr style='background:#f8fafc;'><td style='padding:7px;color:#334155;'>口頭表達<\/td><td style='padding:7px;text-align:center;color:#94a3b8;'>☆☆☆☆☆<\/td><td style='padding:7px;color:#94a3b8;'>音量、速度、有沒有看稿<\/td><\/tr>\n    <tr><td style='padding:7px;color:#334155;'><strong>我學到的一件事<\/strong><\/td><td style='padding:7px;text-align:center;color:#64748b;'>—<\/td><td style='padding:7px;color:#94a3b8;'>用一句話寫下來<\/td><\/tr>\n    <tr style='background:#f8fafc;'><td style='padding:7px;color:#334155;'><strong>我想問的一個問題<\/strong><\/td><td style='padding:7px;text-align:center;color:#64748b;'>—<\/td><td style='padding:7px;color:#94a3b8;'>針對內容，不針對人<\/td><\/tr>\n  <\/table>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;'>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>📊 互評怎麼計入成績<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>互評結果<strong>不直接當成對方的分數<\/strong>，而是作為老師評分時的參考，以及回饋給該組修正。<br><strong>你自己填得認不認真<\/strong>，則計入你的課堂參與。<\/p><\/div>\n  <div style='background:#fef2f2;border-radius:10px;padding:13px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>⚠️ 互評的原則<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>不因為交情好就給高分、交情差就給低分。<strong>對事不對人<\/strong>——這也是這學期一直在練習的資訊素養。<\/p><\/div>\n<\/div>"}, {"id": 10, "chapter": "第二節：聽眾與同儕互評", "title": "組內互評", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🤝 組內互評：誠實但不傷人<\/h2>\n<div style='background:#f5f3ff;border-radius:12px;padding:15px;margin-bottom:12px;'>\n  <p style='color:#5b21b6;font-size:.92rem;font-weight:700;margin-bottom:9px;'>為什麼要做組內互評？<\/p>\n  <p style='color:#334155;font-size:.84rem;margin:0;line-height:1.9;'>\n    因為老師只看得到成果，看不到過程。組內互評讓<strong>真正有付出的人被看見<\/strong>，也讓大家在下次合作時知道可以怎麼調整。<\/p>\n<\/div>\n<div style='background:#eff6ff;border-radius:12px;padding:15px;margin-bottom:11px;'>\n  <p style='color:#1e40af;font-size:.9rem;font-weight:700;margin-bottom:8px;'>📝 每位組員（包含你自己）都要填<\/p>\n  <ul style='color:#334155;font-size:.82rem;line-height:1.95;padding-left:20px;margin:0;'>\n    <li>他／我主要負責了什麼？（具體寫出做了哪些事）<\/li>\n    <li>他／我最大的貢獻是什麼？<\/li>\n    <li>如果再做一次，這個角色可以怎麼做得更好？<\/li>\n  <\/ul>\n<\/div>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:10px;'>\n  <div style='background:#f0fdf4;border-radius:10px;padding:13px;'>\n    <strong style='color:#166534;font-size:.88rem;'>✅ 好的寫法<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「小明負責找資料，他找到了臺北市開放資料平臺的停車位資料，是我們第 4 頁圖表的來源。」<\/p><\/div>\n  <div style='background:#fef2f2;border-radius:10px;padding:13px;'>\n    <strong style='color:#991b1b;font-size:.88rem;'>❌ 不恰當的寫法<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:5px;line-height:1.75;'>「小華很懶」「他什麼都沒做」——沒有具體事實的評語，只會變成人身攻擊。<\/p><\/div>\n<\/div>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>💬 <strong>如果組內真的有嚴重的分工問題<\/strong>，請在互評時<strong>具體描述發生了什麼事<\/strong>（哪一週、缺了什麼），或直接私下告訴老師。老師會處理，但需要事實而不是形容詞。<\/p>\n<\/div>"}, {"id": 11, "chapter": "第二節：聽眾與同儕互評", "title": "第二節 隨堂測驗", "bg": "purple", "quiz": "q2", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>📝<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>第二節 隨堂測驗<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>聽眾與互評 ｜ 3 題<\/p>\n<\/div>"}, {"id": 12, "chapter": "第三節：學期總複習", "title": "一條線串起七大主題", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🔗 用一條線串起這學期的七大主題<\/h2>\n<div style='background:#1e293b;border-radius:12px;padding:18px;margin-bottom:12px;'>\n  <div style='display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:center;'>\n    <div style='background:rgba(59,130,246,.22);border-radius:9px;padding:11px 13px;text-align:center;min-width:96px;'>\n      <div style='font-size:1.3rem;'>📡<\/div><p style='color:#93c5fd;font-size:.77rem;margin:3px 0 0;'><strong>IoT<\/strong><br>產生資料<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(13,148,136,.22);border-radius:9px;padding:11px 13px;text-align:center;min-width:96px;'>\n      <div style='font-size:1.3rem;'>☁️<\/div><p style='color:#5eead4;font-size:.77rem;margin:3px 0 0;'><strong>雲端<\/strong><br>集中儲存<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(245,158,11,.22);border-radius:9px;padding:11px 13px;text-align:center;min-width:96px;'>\n      <div style='font-size:1.3rem;'>📊<\/div><p style='color:#fcd34d;font-size:.77rem;margin:3px 0 0;'><strong>大數據<\/strong><br>找出規律<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(168,85,247,.22);border-radius:9px;padding:11px 13px;text-align:center;min-width:96px;'>\n      <div style='font-size:1.3rem;'>🤖<\/div><p style='color:#d8b4fe;font-size:.77rem;margin:3px 0 0;'><strong>AI/ML<\/strong><br>學習決策<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(239,68,68,.22);border-radius:9px;padding:11px 13px;text-align:center;min-width:96px;'>\n      <div style='font-size:1.3rem;'>🔒<\/div><p style='color:#fca5a5;font-size:.77rem;margin:3px 0 0;'><strong>資安／個資<\/strong><br>風險出現<\/p><\/div>\n    <span style='color:#f59e0b;'>&#8594;<\/span>\n    <div style='background:rgba(148,163,184,.25);border-radius:9px;padding:11px 13px;text-align:center;min-width:96px;'>\n      <div style='font-size:1.3rem;'>⚖️<\/div><p style='color:#e2e8f0;font-size:.77rem;margin:3px 0 0;'><strong>資訊倫理<\/strong><br>規則討論<\/p><\/div>\n  <\/div>\n  <p style='color:#94a3b8;font-size:.83rem;margin-top:14px;text-align:center;'>這不是七個獨立的單元，而是<strong style='color:#fbbf24;'>同一個故事的六個階段<\/strong>。<\/p>\n<\/div>\n<div style='background:#eff6ff;padding:12px 16px;border-radius:8px;border-left:4px solid #2563eb;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🧠 <strong>用一個例子走完全程<\/strong>：智慧手環測心跳（IoT）→ 上傳到 App（雲端）→ 累積成健康資料庫（大數據）→ 訓練出預警模型（AI）→ 這些健康資料誰能看（個資與資安）→ 保險公司可以拿去調整保費嗎（倫理）。<\/p>\n<\/div>"}, {"id": 13, "chapter": "第三節：學期總複習", "title": "關鍵名詞速查（上）", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📖 關鍵名詞速查（第 1–4 週）<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:11px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:6px;text-align:left;width:20%;'>名詞<\/th>\n    <th style='padding:6px;text-align:left;'>一句話說明<\/th><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>IT／ICT<\/strong><\/td><td style='padding:6px;'>管理與處理資訊的各種技術總稱（加上通訊即為 ICT）<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>數位足跡<\/strong><\/td><td style='padding:6px;'>你在網路上留下的所有紀錄，分主動與被動兩種<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>IoT／AIoT<\/strong><\/td><td style='padding:6px;'>物品連網能感測與溝通；再加上 AI 分析決策就是 AIoT<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>RFID<\/strong><\/td><td style='padding:6px;'>用無線電波隔空讀取標籤資料（悠遊卡）<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>大數據 4V<\/strong><\/td><td style='padding:6px;'>Volume 大量、Velocity 快速、Variety 多樣、Veracity 真實性<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>資料科學四步驟<\/strong><\/td><td style='padding:6px;'>收集 → 清理 → 找模式 → 預測<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>相關 ≠ 因果<\/strong><\/td><td style='padding:6px;'>兩件事一起發生，不代表其中一件造成另一件<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>雲端運算<\/strong><\/td><td style='padding:6px;'>透過網路使用別人機房的運算與儲存資源，用多少付多少<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>個人資料<\/strong><\/td><td style='padding:6px;'>能直接或間接識別出特定自然人的資料<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>特種個資<\/strong><\/td><td style='padding:6px;'>病歷、醫療、基因、性生活、健康檢查、犯罪前科（保護更嚴格）<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>當事人五項權利<\/strong><\/td><td style='padding:6px;'>查詢閱覽、製給複製本、補充更正、停止利用、請求刪除<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>去識別化<\/strong><\/td><td style='padding:6px;'>移除或處理可辨識個人的欄位，讓資料無法對應回特定的人<\/td><\/tr>\n  <tr style='background:#eff6ff;'><td style='padding:6px;'><strong>同溫層／過濾氣泡<\/strong><\/td><td style='padding:6px;'>演算法不斷推薦你會喜歡的內容，讓你越來越少看到不同觀點<\/td><\/tr>\n<\/table>\n<div style='background:#fef3c7;padding:11px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.87rem;margin:0;'>💡 <strong>複習方法<\/strong>：遮住右邊，看名詞說得出解釋；再遮住左邊，看解釋說得出名詞。兩邊都會，才是真的懂。<\/p>\n<\/div>"}, {"id": 14, "chapter": "第三節：學期總複習", "title": "關鍵名詞速查（下）", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📖 關鍵名詞速查（第 5–12 週）<\/h2>\n<table style='width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:11px;'>\n  <tr style='background:#1e40af;color:#fff;'>\n    <th style='padding:6px;text-align:left;width:20%;'>名詞<\/th>\n    <th style='padding:6px;text-align:left;'>一句話說明<\/th><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>著作權<\/strong><\/td><td style='padding:6px;'>創作完成即自動取得，台灣為著作人生存期間＋死後 50 年<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>合理使用四基準<\/strong><\/td><td style='padding:6px;'>目的性質、著作性質、質量比例、對市場價值的影響<\/td><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>創用 CC<\/strong><\/td><td style='padding:6px;'>BY／NC／ND／SA 四要素組合出 6 種授權<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>CC0<\/strong><\/td><td style='padding:6px;'>拋棄全部權利，任何人可任何方式使用，不可撤回<\/td><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>抄襲 vs 造假<\/strong><\/td><td style='padding:6px;'>把「別人的」當自己的 vs 把「AI 生成的」當自己創作的<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>社交工程<\/strong><\/td><td style='padding:6px;'>攻擊「人」而不是機器，利用好奇、貪、怕、急四種心理<\/td><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>2FA 雙因素驗證<\/strong><\/td><td style='padding:6px;'>密碼之外再加一道「你持有的」或「你本身的」憑證<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>Deepfake<\/strong><\/td><td style='padding:6px;'>深度學習＋偽造，製作幾可亂真的假影音<\/td><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>查證四步驟<\/strong><\/td><td style='padding:6px;'>誰說的？什麼時候？還有誰報？證據呢？——而且要換管道查<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>AI / ML / DL<\/strong><\/td><td style='padding:6px;'>三個同心圓：AI 是目標，ML 與 DL 是實現的方法<\/td><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>訓練與測試<\/strong><\/td><td style='padding:6px;'>用已知答案的資料學規律，再用沒看過的資料檢驗<\/td><\/tr>\n  <tr><td style='padding:6px;'><strong>AI 幻覺<\/strong><\/td><td style='padding:6px;'>AI 用肯定語氣說出錯誤或不存在的資訊<\/td><\/tr>\n  <tr style='background:#f0fdf4;'><td style='padding:6px;'><strong>數據三要素<\/strong><\/td><td style='padding:6px;'>誰統計的、哪一年、哪裡查得到<\/td><\/tr>\n<\/table>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.87rem;margin:0;'>📌 這兩頁可以截圖存起來，第二學期學程式設計時，這些觀念還是會不斷出現。<\/p>\n<\/div>"}, {"id": 15, "chapter": "第三節：學期總複習", "title": "總複習測驗（上）", "bg": "purple", "quiz": "q3", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>🧠<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>總複習測驗（上）<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>觀念統整 ｜ 3 題<\/p>\n<\/div>"}, {"id": 16, "chapter": "第三節：學期總複習", "title": "五個帶得走的能力", "bg": "teal", "quiz": null, "chart": null, "video": null, "html": "\n<h2 style='color:#fff;font-size:1.5rem;font-weight:700;margin-bottom:6px;'>🎒 這學期真正要帶走的五件事<\/h2>\n<p style='color:#ccfbf1;font-size:.85rem;margin-bottom:13px;'>名詞會忘記，但這五個習慣可以用一輩子<\/p>\n<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;'>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:14px;'>\n    <strong style='color:#fff;font-size:.92rem;'>① 看到數字，先問「誰說的、哪一年」<\/strong>\n    <p style='color:#ccfbf1;font-size:.79rem;margin-top:5px;line-height:1.7;'>這一句話，可以擋掉大部分的假訊息與誇大宣傳。<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:14px;'>\n    <strong style='color:#fff;font-size:.92rem;'>② 覺得怪怪的，停三秒再按<\/strong>\n    <p style='color:#ccfbf1;font-size:.79rem;margin-top:5px;line-height:1.7;'>不論是連結、轉發，還是匯款。強烈的情緒就是提醒你停下來的訊號。<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:14px;'>\n    <strong style='color:#fff;font-size:.92rem;'>③ 發布前想「爸媽看到 OK 嗎」<\/strong>\n    <p style='color:#ccfbf1;font-size:.79rem;margin-top:5px;line-height:1.7;'>網路不會忘記，你的數位足跡會跟你很久。<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:14px;'>\n    <strong style='color:#fff;font-size:.92rem;'>④ 用別人的東西，先問來源與授權<\/strong>\n    <p style='color:#ccfbf1;font-size:.79rem;margin-top:5px;line-height:1.7;'>尊重別人的創作，就是在保護自己創作的價值。<\/p><\/div>\n  <div style='background:rgba(255,255,255,.12);border-radius:10px;padding:14px;grid-column:span 2;'>\n    <strong style='color:#fff;font-size:.92rem;'>⑤ 用 AI，但保留自己的判斷<\/strong>\n    <p style='color:#ccfbf1;font-size:.79rem;margin-top:5px;line-height:1.7;'>它可以幫你想、幫你查、幫你改，但那個「我確認過了、我這樣認為」，必須是你自己說的。<strong>判斷力是唯一不能外包的東西。<\/strong><\/p><\/div>\n<\/div>\n<div style='background:rgba(0,0,0,.22);border-radius:9px;padding:13px 18px;text-align:center;'>\n  <p style='color:#fff;font-size:.98rem;font-weight:700;margin:0;'>科技不是魔法，它是人設計出來的——所以你也可以設計它。<\/p>\n<\/div>"}, {"id": 17, "chapter": "第三節：學期總複習", "title": "總複習測驗（下）", "bg": "purple", "quiz": "q4", "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:44px 20px;'>\n  <div style='font-size:54px;margin-bottom:16px;'>🏁<\/div>\n  <h1 style='font-size:2rem;color:#fff;margin-bottom:10px;'>總複習測驗（下）<\/h1>\n  <p style='color:#e9d5ff;font-size:1rem;'>實際情境應用 ｜ 4 題<\/p>\n  <p style='color:#c4b5fd;font-size:.85rem;margin-top:16px;'>這是這學期最後的測驗，加油！<\/p>\n<\/div>"}, {"id": 18, "chapter": "第四節：學習歷程與展望", "title": "寫學習歷程心得", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📔 個人學習歷程心得怎麼寫？<\/h2>\n<div style='background:#f5f3ff;border-radius:12px;padding:15px;margin-bottom:12px;'>\n  <p style='color:#5b21b6;font-size:.92rem;font-weight:700;margin-bottom:8px;'>不要寫成流水帳，要寫「歷程」<\/p>\n  <p style='color:#334155;font-size:.84rem;margin:0;line-height:1.9;'>\n    <span style='color:#dc2626;'>❌ 流水帳<\/span>：「第一週上課，第二週學物聯網，第三週學大數據……很有趣，我學到很多。」<br>\n    <span style='color:#16a34a;'>✅ 歷程<\/span>：「原本我以為○○，直到我查到○○才發現不是這樣。這件事讓我改變了○○的做法。」<\/p>\n<\/div>\n<div style='background:#eff6ff;border-radius:12px;padding:15px;margin-bottom:11px;'>\n  <p style='color:#1e40af;font-size:.9rem;font-weight:700;margin-bottom:8px;'>✍️ 四個可以用的提問（300 字以上）<\/p>\n  <ol style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:20px;margin:0;'>\n    <li><strong>最意外的一件事<\/strong>：這學期哪一個觀念顛覆了你原本的想法？為什麼？<\/li>\n    <li><strong>最困難的一段<\/strong>：做專題時遇到什麼卡關？你們怎麼解決（或沒解決）？<\/li>\n    <li><strong>我改變的一個行為<\/strong>：你因為這門課，實際做了什麼改變？（改密碼、關掉某個權限、發文前多想一下…）<\/li>\n    <li><strong>還想知道的問題<\/strong>：有什麼是你還沒搞懂、或想繼續探索的？<\/li>\n  <\/ol>\n<\/div>\n<div style='background:#ecfdf5;padding:12px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    💚 <strong>誠實比漂亮重要<\/strong>：如果你覺得某個單元很無聊、或某次分工不順利，可以誠實寫出來，並說說你的想法。<strong>老師想看到真實的你，不是想看到完美的作文。<\/strong><\/p>\n<\/div>"}, {"id": 19, "chapter": "第四節：學習歷程與展望", "title": "整理你的作品集", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>📁 整理你這學期的作品集<\/h2>\n<div style='background:#eff6ff;border-radius:12px;padding:16px;margin-bottom:12px;'>\n  <p style='color:#1e40af;font-size:.9rem;font-weight:700;margin-bottom:9px;'>在雲端硬碟建立資料夾 <code>115-1 資訊科技<\/code>，把這些放進去：<\/p>\n  <div style='display:grid;grid-template-columns:repeat(2,1fr);gap:9px;'>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W1 我的科技一天<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W2 IoT 裝置設計合作簡報<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W3 Google 雲端工具應用介紹<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W4 隱私自我檢核表<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W5 素材清單與作品授權<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W6 釣魚辨識與帳號健檢表<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W7 Group Talk 討論簡報<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W8–9 Teachable Machine 訓練紀錄<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W10–12 專題企劃表與專題簡報<\/p><\/div>\n    <div style='background:#fff;border-radius:9px;padding:11px;'>\n      <p style='color:#334155;font-size:.82rem;margin:0;'>☐ W13–14 學習歷程心得<\/p><\/div>\n  <\/div>\n<\/div>\n<div style='background:#fef3c7;padding:12px 16px;border-radius:8px;border-left:4px solid #f59e0b;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    🎓 <strong>為什麼要整理？<\/strong>三年後你要準備高中學習歷程檔案時，<strong>會非常感謝現在的自己<\/strong>。到時候臨時要生出作品是不可能的，但如果你每學期都有整理，那時只要挑選就好。<\/p>\n<\/div>"}, {"id": 20, "chapter": "第四節：學習歷程與展望", "title": "下學期會學什麼", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🚀 接下來會學什麼？<\/h2>\n<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:15px;border-top:5px solid #2563eb;'>\n    <strong style='color:#1e40af;font-size:1rem;'>第二學期<\/strong>\n    <p style='font-size:.78rem;color:#64748b;margin:3px 0 8px;'>第 15–25 週<\/p>\n    <ul style='color:#475569;font-size:.79rem;line-height:1.85;padding-left:18px;margin:0;'>\n      <li>電腦基本構造與硬體架構<\/li>\n      <li>資料處理與分析（Google 工具進階）<\/li>\n      <li><strong>演算法基本概念<\/strong><\/li>\n      <li><strong>流程圖的符號與繪製<\/strong><\/li>\n      <li>圖形積木程式設計入門<\/li>\n    <\/ul><\/div>\n  <div style='background:#f0fdf4;border-radius:12px;padding:15px;border-top:5px solid #16a34a;'>\n    <strong style='color:#166534;font-size:1rem;'>第三學期<\/strong>\n    <p style='font-size:.78rem;color:#64748b;margin:3px 0 8px;'>第 26–42 週<\/p>\n    <ul style='color:#475569;font-size:.79rem;line-height:1.85;padding-left:18px;margin:0;'>\n      <li>程式開發步驟<\/li>\n      <li><strong>Scratch 循序、選擇、重複結構<\/strong><\/li>\n      <li>程式語言基本概念與應用<\/li>\n      <li><strong>生活應用發想專題製作<\/strong>（配合學習慶典）<\/li>\n      <li>成果發表<\/li>\n    <\/ul><\/div>\n  <div style='background:#fefce8;border-radius:12px;padding:15px;border-top:5px solid #eab308;'>\n    <strong style='color:#854d0e;font-size:1rem;'>這學期的東西還在嗎？<\/strong>\n    <p style='font-size:.79rem;color:#475569;margin-top:8px;line-height:1.85;'>\n      <strong>都還在。<\/strong><br>\n      寫程式時要處理資料（大數據觀念）、要用雲端工具、要查資料（查證能力）、要用別人的素材（著作權）、要保護帳號（資安）。<br>\n      <span style='color:#0d9488;'>這學期學的是<strong>地基<\/strong>，下學期開始蓋房子。<\/span><\/p><\/div>\n<\/div>\n<div style='background:#f5f3ff;padding:12px 16px;border-radius:8px;border-left:4px solid #7c3aed;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;line-height:1.85;'>\n    💡 <strong>想先預習的話<\/strong>：可以到 Scratch 官方網站玩玩看（免費、中文介面），或試試 Code.org 的一小時程式設計。<strong>不用怕，程式設計就是把「解決問題的步驟」寫清楚而已。<\/strong><\/p>\n<\/div>"}, {"id": 21, "chapter": "第四節：學習歷程與展望", "title": "老師想說的話", "bg": "purple", "quiz": null, "chart": null, "video": null, "html": "\n<div style='padding:20px;'>\n  <h2 style='color:#fff;font-size:1.6rem;font-weight:800;margin-bottom:16px;text-align:center;'>💬 學期末，老師想說的話<\/h2>\n  <div style='background:rgba(255,255,255,.12);border-radius:12px;padding:20px;margin-bottom:14px;'>\n    <p style='color:#f3e8ff;font-size:.95rem;line-height:2.1;margin:0;'>\n      這學期我們沒有寫任何一行程式，卻學了很多東西。<br><br>\n      我們認識了物聯網、大數據、雲端和 AI，也認識了它們帶來的<strong>資安風險、隱私問題和倫理難題<\/strong>。<br><br>\n      你可能會忘記 4V 是哪四個 V、忘記創用 CC 有幾種組合。<strong>那沒關係。<\/strong><br><br>\n      但我希望你記得：<strong>看到一個數字，會想問「誰說的、哪一年」<\/strong>；<strong>看到一則讓你很生氣的貼文，會先停三秒<\/strong>；<strong>用別人的作品時，會記得標上他的名字<\/strong>。<br><br>\n      這些習慣不會讓你考高分，但會讓你在這個資訊爆炸的時代，<strong>比較不容易被騙、比較能保護自己、也比較能被信任<\/strong>。<\/p>\n  <\/div>\n  <div style='background:linear-gradient(90deg,rgba(13,148,136,.4),rgba(245,158,11,.3));border-radius:12px;padding:16px;text-align:center;'>\n    <p style='color:#fff;font-size:1.1rem;font-weight:800;margin:0;'>Stay Hungry, Stay Foolish!<\/p>\n    <p style='color:#e9d5ff;font-size:.87rem;margin-top:6px;'>求知若飢，虛心若愚——下學期見！<\/p>\n  <\/div>\n<\/div>"}, {"id": 22, "chapter": "期末任務", "title": "期末任務清單", "bg": "white", "quiz": null, "chart": null, "video": null, "html": "\n<h2 class='slide-title'>🎯 期末任務清單（第 13–14 週）<\/h2>\n<div style='display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-bottom:12px;'>\n  <div style='background:#eff6ff;border-radius:12px;padding:16px;'>\n    <h3 style='color:#1e40af;font-size:1rem;margin-bottom:8px;'>📋 三件事，一件都不能少<\/h3>\n    <ol style='color:#334155;font-size:.83rem;line-height:1.95;padding-left:20px;margin:0;'>\n      <li><strong>小組上台發表<\/strong>（5 分鐘）<br>\n        <span style='font-size:.78rem;color:#64748b;'>每位組員都要上台講；含 2 分鐘提問時間<\/span><\/li>\n      <li><strong>同儕互評表<\/strong>（每組都要填）<br>\n        <span style='font-size:.78rem;color:#64748b;'>含「我學到的一件事」與「我想問的一個問題」<\/span><\/li>\n      <li><strong>個人學習歷程心得<\/strong>（300 字以上）<br>\n        <span style='font-size:.78rem;color:#64748b;'>依第 18 頁的四個提問撰寫，並附上作品集資料夾連結<\/span><\/li>\n    <\/ol>\n  <\/div>\n  <div style='background:#fffbeb;border-radius:12px;padding:16px;'>\n    <h3 style='color:#92400e;font-size:1rem;margin-bottom:8px;'>📏 評分（規準一）<\/h3>\n    <table style='width:100%;font-size:.79rem;color:#334155;border-collapse:collapse;'>\n      <tr><td style='padding:5px 0;width:14%;'><strong style='color:#059669;'>A<\/strong><\/td><td>能善用數位工具有系統地整合多元資料，完整且正確表達；發表清楚並能回應提問<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#2563eb;'>B<\/strong><\/td><td>能使用數位工具組織資料並正確表達<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#d97706;'>C<\/strong><\/td><td>在引導下能簡易組織並簡單表達<\/td><\/tr>\n      <tr><td style='padding:5px 0;'><strong style='color:#dc2626;'>D<\/strong><\/td><td>在引導下能有限地表達部分資料<\/td><\/tr>\n    <\/table>\n    <div style='background:#fff;border-radius:8px;padding:10px;margin-top:10px;'>\n      <p style='font-size:.78rem;color:#475569;margin:0;line-height:1.75;'>🎖️ <strong>特別獎項<\/strong>：全班票選「最想知道更多的主題」與「最用心查證獎」。<\/p>\n    <\/div>\n  <\/div>\n<\/div>\n<div style='background:#ecfdf5;padding:11px 16px;border-radius:8px;border-left:4px solid #0d9488;'>\n  <p style='color:#374151;font-size:.88rem;margin:0;'>📅 <strong>繳交方式<\/strong>：全部放在雲端硬碟 <code>115-1 資訊科技<\/code> 資料夾，把資料夾分享給老師（檢視權限即可），並依老師指示回報連結。<\/p>\n<\/div>"}, {"id": 23, "chapter": "期末任務", "title": "學期完成", "bg": "navy", "quiz": null, "chart": null, "video": null, "html": "\n<div style='text-align:center;padding:22px 20px;'>\n  <div style='font-size:58px;margin-bottom:12px;'>🎓<\/div>\n  <h1 style='font-size:2rem;font-weight:900;color:#fff;margin-bottom:8px;'>第一學期，完成！<\/h1>\n  <p style='color:#93c5fd;font-size:1rem;margin-bottom:20px;'>14 週 · 10 個章節 · 7 大科技議題<\/p>\n  <div style='display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:20px;'>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>🚀<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>數位公民<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>📡<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>IoT / AIoT<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>☁️<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>大數據雲端<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>🤖<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>AI / ML<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>🎣<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>資訊安全<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>🔒<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>個資保護<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>🎭<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>Deepfake 倫理<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>©️<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>著作權 CC<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>📊<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>專題製作<\/p><\/div>\n    <div style='background:rgba(255,255,255,.1);border-radius:9px;padding:11px;'>\n      <div style='font-size:1.3rem;'>🏆<\/div><p style='color:#cbd5e1;font-size:.72rem;margin-top:4px;'>成果發表<\/p><\/div>\n  <\/div>\n  <div style='background:linear-gradient(90deg,rgba(13,148,136,.4),rgba(107,63,160,.4));border-radius:12px;padding:18px;'>\n    <p style='color:#fff;font-size:1.05rem;font-weight:700;margin:0;'>謝謝你這學期的投入。下學期，我們開始寫程式。<\/p>\n    <p style='color:#cbd5e1;font-size:.83rem;margin-top:7px;'>臺北市芳和實驗中學國中部 ｜ 許惠淑老師 green@fhehs.tp.edu.tw<\/p>\n  <\/div>\n<\/div>"}];window.__QUIZZES__={"q1": {"title": "第一節 隨堂測驗", "questions": [{"q": "上台發表時，下列哪一種做法最能讓聽眾聽懂？", "options": ["把簡報上的字一字不漏念完", "一開場就先講「我們要回答的問題是什麼」，再依序說明", "講越快越好，才能在時間內講完", "把所有查到的資料全部講一遍"], "answer": 1, "explain": "聽眾需要先知道「這場報告要解決什麼問題」，才知道後面的內容為什麼重要。先給地圖，再走路——這是所有好報告的共同起手式。"}, {"q": "發表時被問到一個你不知道答案的問題，最好的回應是？", "options": ["隨便編一個答案", "假裝沒聽到", "誠實說「這部分我們沒有查到，我可以查了之後再回覆你」", "說「這不是我負責的」"], "answer": 2, "explain": "誠實承認不知道，比編造答案專業得多——這也呼應這學期一直在講的：<strong>不確定的事不要講得很肯定<\/strong>。「這不是我負責的」則會顯示小組並未真正合作。"}, {"q": "關於發表的時間控制，正確的做法是？", "options": ["不用練習，上台自然就會", "事先<strong>計時試講<\/strong>，並依實際時間刪減內容", "講不完就加快語速", "準備兩倍的內容比較保險"], "answer": 1, "explain": "幾乎所有人第一次試講都會超時。試講並依實際時間<strong>刪掉次要內容<\/strong>，是唯一有效的辦法。加快語速只會讓聽眾聽不懂。"}]}, "q2": {"title": "第二節 隨堂測驗", "questions": [{"q": "寫同儕互評時，下列哪一則回饋最有幫助？", "options": ["很好，很棒", "不好看", "第 4 頁的圖表沒有標單位，建議補上；台灣案例的部分很具體，讓我一下就懂了", "你們組比我們組差"], "answer": 2, "explain": "好的回饋要<strong>具體指出是哪裡<\/strong>、<strong>說明為什麼<\/strong>、<strong>提出可以怎麼改<\/strong>。「很好」「不好」對方拿去也不知道要改什麼。互評的目的是幫對方進步，不是評斷高下。"}, {"q": "當聽眾時，最適當的態度是？", "options": ["低頭做自己的事，反正不是我報告", "專心聽並記下 1 個優點與 1 個問題，發問時針對內容而非個人", "故意問很難的問題讓對方答不出來", "在台下和同學聊天討論"], "answer": 1, "explain": "你希望自己上台時台下是什麼樣子，就先當那樣的聽眾。發問要針對<strong>內容<\/strong>（「這個數據是哪一年的？」），不要針對<strong>人<\/strong>。"}, {"q": "收到別人對你作品的批評時，比較成熟的反應是？", "options": ["立刻反駁對方", "先聽完並理解對方的意思，判斷哪些建議有道理、哪些可以不採納", "完全照著改，不管有沒有道理", "從此不再和對方說話"], "answer": 1, "explain": "批評作品不等於批評你這個人。成熟的做法是「<strong>先聽懂，再判斷<\/strong>」——有道理的採納，沒道理的可以說明你的理由。這是一輩子受用的能力。"}]}, "q3": {"title": "第三節 總複習（上）", "questions": [{"q": "把七大主題串成一條線，正確的順序是？", "options": ["AI 學習 → IoT 蒐集資料 → 雲端儲存 → 大數據分析", "IoT 蒐集資料 → 雲端儲存 → 大數據分析 → AI 學習與決策", "大數據 → IoT → AI → 雲端", "雲端 → AI → 大數據 → IoT"], "answer": 1, "explain": "這是這學期最重要的一條主線：感測器產生資料（IoT）→ 存到別人的機房（雲端）→ 量大到需要特殊工具處理（大數據）→ 餵給模型學習（AI）→ 由此衍生資安、個資與倫理問題。"}, {"q": "下列配對何者<strong>錯誤<\/strong>？", "options": ["RFID —— 悠遊卡感應", "4V —— 大數據的四個特性", "2FA —— 雙因素驗證", "CC0 —— 禁止任何人使用"], "answer": 3, "explain": "CC0 是「拋棄全部權利」，任何人都可以自由使用，包含商業用途，而且不需標示。它是限制<strong>最少<\/strong>的，不是最多的。"}, {"q": "關於「相關不等於因果」，下列哪個例子說明得最好？", "options": ["因為下雨，所以地是濕的", "夏天冰淇淋銷量和溺水事件都變多，但真正的原因是天氣熱", "按下開關，燈就亮了", "吃飯所以會飽"], "answer": 1, "explain": "兩件事一起變多（相關），不代表其中一件造成另一件（因果）。常常是有<strong>第三個因素<\/strong>同時影響了兩者。做專題時把相關講成因果，是最常見的錯誤。"}]}, "q4": {"title": "第三節 總複習（下）", "questions": [{"q": "收到「您的包裹地址有誤，請點此更新」的簡訊，正確做法是？", "options": ["點連結填寫資料", "不點連結，改用官方 App 或自己輸入官網網址查詢包裹狀態", "回撥簡訊裡的電話", "把簡訊轉發給朋友問問看"], "answer": 1, "explain": "這是典型的簡訊釣魚。守則是：<strong>永遠不要點訊息裡的連結去登入或填資料<\/strong>，改用你原本就知道的官方管道查詢。"}, {"q": "關於個人資料，下列敘述何者正確？", "options": ["只要沒有寫名字就不是個資", "只要能直接或間接識別出特定個人，就屬於個人資料", "照片不算個人資料", "個資外洩之後可以像密碼一樣重設"], "answer": 1, "explain": "個資的判準是「<strong>可識別性<\/strong>」，不是「有沒有寫名字」。而且身分證字號、生日、指紋一輩子只有一組，外洩之後<strong>無法重設<\/strong>——這正是它比密碼更需要保護的原因。"}, {"q": "你想把自己拍的照片放上網，希望「別人可以自由使用，但要標我的名字，不能拿去賣」。應該選哪種授權？", "options": ["CC0", "CC BY", "CC BY-NC", "保留所有權利"], "answer": 2, "explain": "BY＝要標名字，NC＝不能商業使用。所以是 <strong>CC BY-NC<\/strong>。（CC0 完全放棄權利、CC BY 允許商業使用、保留所有權利則別人什麼都不能做。）"}, {"q": "關於生成式 AI，下列敘述何者正確？", "options": ["它會去資料庫查正確答案，所以不會錯", "它是在預測「下一個最可能的詞」，因此可能流暢地說出錯誤內容（AI 幻覺）", "它說的話一定比人類正確", "只要問兩個不同的 AI，答案一致就一定是對的"], "answer": 1, "explain": "這是本學期關於 AI 最重要的一個觀念。它追求的是「像樣」，不是「正確」。而不同 AI 可能學到同樣的錯誤資料，所以「答案一致」也不等於正確——<strong>還是要回到原始來源查證<\/strong>。"}]}};</script>
+</head>
+<body>
+
+<!-- 進度條 -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- 頂部導覽列 -->
+<div id="topbar">
+  <span class="tb-title" id="tb-chapter">AI 時代的數位創作者</span>
+  <span class="tb-counter" id="tb-counter">1 / 23</span>
+  <button id="btn-toc" onclick="toggleToc()">目錄 ☰</button>
+</div>
+
+<!-- 投影片主體 -->
+<div id="slide-wrap">
+  <div id="slide-frame" class="bg-navy"></div>
+</div>
+
+<!-- 底部導覽 -->
+<div id="nav-bar">
+  <button class="nav-btn" id="btn-prev" onclick="prevSlide()" disabled>← 上一頁</button>
+  <div id="slide-dots"></div>
+  <button class="nav-btn" id="btn-next" onclick="nextSlide()">下一頁 →</button>
+</div>
+
+<!-- TOC 側邊欄 -->
+<div id="toc">
+  <h3>📑 課程目錄</h3>
+  <div id="toc-list"></div>
+</div>
+
+<!-- 測驗 Modal -->
+<div id="quiz-overlay">
+  <div id="quiz-box">
+    <div id="quiz-header">
+      <h3 id="quiz-title">測驗</h3>
+      <span class="qh-score" id="quiz-score-preview"></span>
+    </div>
+    <div id="quiz-body"></div>
+    <div id="quiz-footer">
+      <span class="qf-score" id="quiz-result"></span>
+      <div style="display:flex;gap:10px">
+        <button id="btn-submit-quiz" onclick="submitQuiz()">送出答案</button>
+        <button id="btn-close-quiz" onclick="closeQuiz()">繼續學習 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  從 Jinja2 模板取得 Flask 傳入的資料
+// ════════════════════════════════════════════════════════════
+const TOTAL_SLIDES = 23;
+const CHAPTERS_DATA = [{"name": "\u5c01\u9762", "start": 1}, {"name": "\u7b2c\u4e00\u7bc0\uff1a\u600e\u9ebc\u4e0a\u53f0\u8b1b", "start": 2}, {"name": "\u7b2c\u4e8c\u7bc0\uff1a\u807d\u773e\u8207\u540c\u5115\u4e92\u8a55", "start": 7}, {"name": "\u7b2c\u4e09\u7bc0\uff1a\u5b78\u671f\u7e3d\u8907\u7fd2", "start": 12}, {"name": "\u7b2c\u56db\u7bc0\uff1a\u5b78\u7fd2\u6b77\u7a0b\u8207\u5c55\u671b", "start": 18}, {"name": "\u671f\u672b\u4efb\u52d9", "start": 22}];
+
+// ════════════════════════════════════════════════════════════
+//  全域狀態
+// ════════════════════════════════════════════════════════════
+let slides = [];
+let quizzes = {};
+let cur = 0;
+let answered = {};
+let tocVisible = true;
+const chartInstances = {};
+
+// ════════════════════════════════════════════════════════════
+//  初始化：從 Flask API 取得資料
+// ════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    const [slidesRes, quizzesRes] = await Promise.all([
+      Promise.resolve({json:()=>window.__SLIDES__}),
+      Promise.resolve({json:()=>window.__QUIZZES__})
+    ]);
+    slides = await slidesRes.json();
+    quizzes = await quizzesRes.json();
+    buildToc();
+    buildDots();
+    goTo(0);
+  } catch (e) {
+    console.error('資料載入失敗：', e);
+    document.getElementById('slide-frame').innerHTML =
+      "<div style='color:red;padding:20px'>❌ 請確認 Flask 伺服器已啟動！<br><code>python app.py</code></div>";
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立目錄（TOC）
+// ════════════════════════════════════════════════════════════
+function buildToc() {
+  const list = document.getElementById('toc-list');
+  let lastChapter = '';
+  slides.forEach((s, i) => {
+    if (s.chapter !== lastChapter) {
+      const ch = document.createElement('div');
+      ch.className = 'toc-chapter';
+      ch.textContent = s.chapter;
+      list.appendChild(ch);
+      lastChapter = s.chapter;
+    }
+    const item = document.createElement('div');
+    item.className = 'toc-item';
+    item.id = `toc-${i}`;
+    item.textContent = `${s.id}. ${s.title}`;
+    item.onclick = () => goTo(i);
+    list.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  建立點狀導覽
+// ════════════════════════════════════════════════════════════
+function buildDots() {
+  const wrap = document.getElementById('slide-dots');
+  const step = Math.max(1, Math.floor(slides.length / 15));
+  slides.forEach((s, i) => {
+    if (i % step !== 0 && i !== slides.length - 1) return;
+    const d = document.createElement('div');
+    d.className = 'dot';
+    d.id = `dot-${i}`;
+    d.title = s.title;
+    d.onclick = () => goTo(i);
+    wrap.appendChild(d);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  前往特定投影片
+// ════════════════════════════════════════════════════════════
+function goTo(idx) {
+  if (idx < 0 || idx >= slides.length) return;
+  cur = idx;
+  const s = slides[cur];
+  const frame = document.getElementById('slide-frame');
+  frame.className = '';
+  frame.classList.add('bg-' + s.bg);
+  frame.style.opacity = '0';
+  frame.innerHTML = s.html;
+  setTimeout(() => { frame.style.opacity = '1'; }, 30);
+  frame.scrollTop = 0;
+  if (s.chart) setTimeout(() => renderChart(s.chart), 80);
+  if (s.video) setTimeout(() => renderVideo(s.id, s.video), 80);
+  updateNav();
+  updateToc();
+  updateProgress();
+}
+
+// ════════════════════════════════════════════════════════════
+//  導覽：下一頁（有測驗時先觸發測驗）
+// ════════════════════════════════════════════════════════════
+function nextSlide() {
+  const s = slides[cur];
+  if (s.quiz && !answered[s.quiz]) {
+    showQuiz(s.quiz);
+  } else {
+    goTo(cur + 1);
+  }
+}
+function prevSlide() { goTo(cur - 1); }
+
+// ════════════════════════════════════════════════════════════
+//  更新導覽列、進度條、TOC
+// ════════════════════════════════════════════════════════════
+function updateNav() {
+  document.getElementById('btn-prev').disabled = cur === 0;
+  const isLast = cur === slides.length - 1;
+  const hasUnansweredQuiz = slides[cur].quiz && !answered[slides[cur].quiz];
+  document.getElementById('btn-next').disabled = isLast && !hasUnansweredQuiz;
+  document.getElementById('tb-chapter').textContent = slides[cur].chapter + '：' + slides[cur].title;
+  document.getElementById('tb-counter').textContent = `${cur + 1} / ${slides.length}`;
+  document.querySelectorAll('.dot').forEach(d => {
+    d.classList.remove('active');
+    const i = parseInt(d.id.replace('dot-', ''));
+    if (cur === i) d.classList.add('active');
+    else if (cur > i) d.classList.add('done');
+    else d.classList.remove('done');
+  });
+}
+
+function updateProgress() {
+  const pct = ((cur + 1) / slides.length) * 100;
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function updateToc() {
+  document.querySelectorAll('.toc-item').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === cur) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+    else if (i < cur) el.classList.add('done');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  切換 TOC 顯示
+// ════════════════════════════════════════════════════════════
+function toggleToc() {
+  tocVisible = !tocVisible;
+  document.getElementById('toc').classList.toggle('hidden', !tocVisible);
+  document.getElementById('slide-wrap').classList.toggle('toc-hidden', !tocVisible);
+  document.getElementById('nav-bar').classList.toggle('toc-hidden', !tocVisible);
+}
+
+// ════════════════════════════════════════════════════════════
+//  鍵盤快捷鍵
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+  if (e.key === 'ArrowLeft') prevSlide();
+});
+
+// ════════════════════════════════════════════════════════════
+//  影片渲染（YouTube 嵌入 / 搜尋按鈕 / 兩者兼具）
+//  嵌入使用 youtube-nocookie.com（不追蹤、不推薦其他影片、無個人化廣告）
+//  參數 rel=0（結束不推薦別家頻道）、modestbranding=1（隱藏 YT logo）
+// ════════════════════════════════════════════════════════════
+function _ytEmbedHtml(vid, title) {
+  // 使用 youtube-nocookie.com — YouTube 官方「隱私強化」網域，更乾淨
+  return `
+    <div class="video-embed">
+      <iframe src="https://www.youtube-nocookie.com/embed/${vid}?rel=0&modestbranding=1&iv_load_policy=3&fs=1"
+        allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        loading="lazy"></iframe>
+    </div>
+    <p style="text-align:center;font-size:.72rem;color:rgba(255,255,255,.55);margin-top:6px">▶ ${title}</p>`;
+}
+function _ytSearchHtml(query, title, desc) {
+  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+  return `
+    <a href="${url}" target="_blank" class="video-search-btn">
+      <span class="yt-icon">▶️</span>
+      <span>
+        <strong>${title}</strong><br>
+        <small style="font-weight:400;opacity:.8">${desc}</small>
+      </span>
+    </a>`;
+}
+
+function renderVideo(slideId, video) {
+  const el = document.getElementById(`video-section-${slideId}`);
+  if (!el) return;
+  if (video.type === 'youtube') {
+    el.innerHTML = _ytEmbedHtml(video.id, video.title);
+  } else if (video.type === 'both') {
+    // 嵌入播放器 + 底下附「找不到？搜尋更多」備援
+    el.innerHTML = `
+      ${_ytEmbedHtml(video.id, video.title)}
+      <div style="margin-top:10px;">
+        ${_ytSearchHtml(video.query, video.search_title || '想看更多相關影片', video.desc || '在 YouTube 搜尋同主題其他教學')}
+      </div>`;
+  } else {
+    el.innerHTML = _ytSearchHtml(video.query, video.title, video.desc);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  圖表渲染（Chart.js，防止重複建立）
+// ════════════════════════════════════════════════════════════
+function renderChart(type) {
+  if (type === 'formats') {
+    const el = document.getElementById('chart-formats');
+    if (!el || chartInstances['formats']) return;
+    chartInstances['formats'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['JPEG（照片）', 'PNG（圖示）', 'PNG（截圖）', 'SVG（Logo）'],
+        datasets: [{
+          label: '典型檔案大小（KB）',
+          data: [150, 400, 1200, 8],
+          backgroundColor: ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.raw} KB` } }
+        },
+        scales: {
+          y: {
+            type: 'logarithmic',
+            title: { display: true, text: '檔案大小 KB（對數刻度）', color:'#6b7280', font:{size:10} },
+            ticks: { color:'#6b7280', font:{size:10}, callback: v => v + ' KB' }
+          },
+          x: { ticks: { color:'#374151', font:{size:11} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+
+  if (type === 'ai_tools') {
+    const el = document.getElementById('chart-ai-tools');
+    if (!el || chartInstances['ai_tools']) return;
+    chartInstances['ai_tools'] = new Chart(el, {
+      type: 'bar',
+      data: {
+        labels: ['ChatGPT GPT-4o', 'Canva AI', 'Midjourney', 'Adobe Firefly'],
+        datasets: [
+          {
+            label: '圖像品質',
+            data: [4, 3, 5, 4],
+            backgroundColor: 'rgba(107,63,160,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '操作難易',
+            data: [5, 5, 2, 4],
+            backgroundColor: 'rgba(13,148,136,.7)',
+            borderRadius: 4
+          },
+          {
+            label: '授權安全',
+            data: [3, 4, 3, 5],
+            backgroundColor: 'rgba(245,158,11,.7)',
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font:{size:10}, padding:8 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}：${'⭐'.repeat(ctx.raw)}` } }
+        },
+        scales: {
+          y: {
+            min: 0, max: 5,
+            ticks: { color:'#6b7280', font:{size:10}, stepSize: 1, callback: v => v + '⭐' }
+          },
+          x: { ticks: { color:'#374151', font:{size:10} }, grid:{display:false} }
+        }
+      }
+    });
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  測驗功能
+// ════════════════════════════════════════════════════════════
+let curQuizId = null;
+let quizUserAnswers = {};
+
+function showQuiz(qId) {
+  curQuizId = qId;
+  quizUserAnswers = {};
+  const q = quizzes[qId];
+  document.getElementById('quiz-title').textContent = q.title;
+  document.getElementById('quiz-score-preview').textContent = q.questions.length + ' 題';
+  document.getElementById('quiz-result').textContent = '';
+  document.getElementById('btn-submit-quiz').style.display = '';
+  document.getElementById('btn-close-quiz').style.display = 'none';
+
+  const body = document.getElementById('quiz-body');
+  body.innerHTML = '';
+  q.questions.forEach((question, qi) => {
+    const div = document.createElement('div');
+    div.className = 'quiz-q';
+    div.innerHTML = `<div class="q-text">${qi+1}. ${question.q}</div>
+      <div class="q-options" id="opts-${qi}">
+        ${question.options.map((opt, oi) =>
+          `<div class="q-opt" id="opt-${qi}-${oi}" onclick="selectOpt(${qi},${oi})">${opt}</div>`
+        ).join('')}
+      </div>`;
+    body.appendChild(div);
+  });
+  document.getElementById('quiz-overlay').classList.add('show');
+}
+
+function selectOpt(qi, oi) {
+  quizUserAnswers[qi] = oi;
+  const q = quizzes[curQuizId];
+  for (let o = 0; o < q.questions[qi].options.length; o++) {
+    document.getElementById(`opt-${qi}-${o}`).classList.toggle('selected', o === oi);
+  }
+}
+
+function submitQuiz() {
+  const q = quizzes[curQuizId];
+  let correct = 0;
+  q.questions.forEach((question, qi) => {
+    const chosen = quizUserAnswers[qi];
+    const opts = document.getElementById(`opts-${qi}`);
+    for (let o = 0; o < question.options.length; o++) {
+      const el = document.getElementById(`opt-${qi}-${o}`);
+      el.onclick = null;
+      el.classList.remove('selected');
+      if (o === question.answer) el.classList.add('correct');
+      else if (o === chosen && chosen !== question.answer) el.classList.add('wrong');
+    }
+    if (!opts.querySelector('.q-exp')) {
+      const exp = document.createElement('div');
+      exp.className = 'q-exp';
+      exp.innerHTML = '💡 ' + question.explain;   // 解析內容中的 <strong> 等標記
+      opts.after(exp);
+    }
+    if (chosen === question.answer) correct++;
+  });
+  const pct = Math.round((correct / q.questions.length) * 100);
+  document.getElementById('quiz-result').textContent = `得分：${correct}/${q.questions.length}（${pct}%）`;
+  document.getElementById('btn-submit-quiz').style.display = 'none';
+  document.getElementById('btn-close-quiz').style.display = 'inline-block';
+  answered[curQuizId] = true;
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-overlay').classList.remove('show');
+  goTo(cur + 1);
+}
+
+// ════════════════════════════════════════════════════════════
+//  啟動
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>

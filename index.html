@@ -142,7 +142,7 @@ footer{
     <div class="hero-quote">Stay Hungry, Stay Foolish ！</div>
     <div class="hero-quote-zh">求知若飢，虛心若愚</div>
     <div class="hero-meta">
-      <span class="hero-tag">📚 已開放 3 / 10 章</span>
+      <span class="hero-tag">📚 已開放 10 / 10 章</span>
       <span class="hero-tag">🗓️ 第 1–14 週</span>
       <span class="hero-tag">🎯 互動式教學</span>
       <a class="hero-tag" href="rubric.html" style="text-decoration:none;color:inherit">📏 評量規準</a>
@@ -174,80 +174,30 @@ footer{
 
 <script>
 const CHAPTERS = [
-  {
-    n:1, title:'課程導覽與數位公民起手式',
-    week:'第 1 週',
-    emoji:'🚀',
-    topics:['課前問卷','帳號設定','Chromebook','七大主題'],
-    available: true
-  },
-  {
-    n:2, title:'物聯網 IoT 與 AIoT',
-    week:'第 2 週',
-    emoji:'📡',
-    topics:['IoT','RFID','AIoT','智慧城市'],
-    available: true
-  },
-  {
-    n:3, title:'大數據與雲端運算',
-    week:'第 3 週',
-    emoji:'☁️',
-    topics:['Big Data 4V','資料科學','雲端服務','Google 工具'],
-    available: true
-  },
-  {
-    n:4, title:'人工智慧與機器學習',
-    week:'第 4 週',
-    emoji:'🤖',
-    topics:['AI/ML/DL','三波熱潮','生成式 AI','Google AI 體驗'],
-    available: true
-  },
-  {
-    n:5, title:'資訊安全：人是最大的漏洞',
-    week:'第 5 週',
-    emoji:'🎣',
-    topics:['社交工程','釣魚信件','密碼強度','惡意軟體'],
-    available: true
-  },
-  {
-    n:6, title:'個人資料保護與數位足跡',
-    week:'第 6 週',
-    emoji:'🔒',
-    topics:['個資法','App 權限','數位足跡','隱私設定'],
-    available: true
-  },
-  {
-    n:7, title:'Deepfake 與科技倫理兩難',
-    week:'第 7 週',
-    emoji:'🎭',
-    topics:['深度偽造','假訊息查核','安全 vs 隱私','AI 倫理'],
-    available: true
-  },
-  {
-    n:8, title:'數位著作合理使用',
-    week:'第 8–9 週',
-    emoji:'©️',
-    topics:['著作權','合理使用','創用 CC','AI 著作權'],
-    available: true
-  },
-  {
-    n:9, title:'新興議題專題報告製作',
-    week:'第 10–12 週',
-    emoji:'📊',
-    topics:['選題與提問','資料查證','簡報設計','分工合作'],
-    available: true
-  },
-  {
-    n:10, title:'成果發表與學期總結',
-    week:'第 13–14 週',
-    emoji:'🏆',
-    topics:['上台技巧','同儕互評','歷程回顧','學期總複習'],
-    available: true
-  }
+  { n:1,  title:'課程導覽與數位公民起手式', week:'第 1 週',     emoji:'🚀',
+    topics:['課前問卷','帳號設定','Chromebook','七大主題'], available:true },
+  { n:2,  title:'物聯網 IoT 與 AIoT',       week:'第 2 週',     emoji:'📡',
+    topics:['IoT','RFID','AIoT','智慧城市'], available:true },
+  { n:3,  title:'大數據與雲端運算',          week:'第 3 週',     emoji:'☁️',
+    topics:['Big Data 4V','資料科學','雲端服務','Google 工具'], available:true },
+  { n:4,  title:'個人資料保護與數位足跡',     week:'第 4 週',     emoji:'🔒',
+    topics:['個資法','App 權限','數位足跡','隱私設定'], available:true },
+  { n:5,  title:'數位著作合理使用',          week:'第 5 週',     emoji:'©️',
+    topics:['著作權','合理使用','創用 CC','AI 著作權'], available:true },
+  { n:6,  title:'資訊安全：人是最大的漏洞',   week:'第 6 週',     emoji:'🎣',
+    topics:['社交工程','釣魚信件','密碼強度','惡意軟體'], available:true },
+  { n:7,  title:'Deepfake 與科技倫理兩難',   week:'第 7 週',     emoji:'🎭',
+    topics:['深度偽造','假訊息查核','安全 vs 隱私','AI 倫理'], available:true },
+  { n:8,  title:'人工智慧與機器學習',        week:'第 8–9 週',   emoji:'🤖',
+    topics:['AI/ML/DL','三波熱潮','生成式 AI','Google AI 體驗'], available:true },
+  { n:9,  title:'新興議題專題報告製作',       week:'第 10–12 週', emoji:'📊',
+    topics:['選題與提問','資料查證','簡報設計','分工合作'], available:true },
+  { n:10, title:'成果發表與學期總結',        week:'第 13–14 週', emoji:'🏆',
+    topics:['上台技巧','同儕互評','歷程回顧','學期總複習'], available:true }
 ];
 
 // 已開放到第幾章（由 app.py 的 PUBLISHED 決定；本機預覽時全部開放）
-const PUBLISHED = 3;
+const PUBLISHED = 10;
 
 const grid = document.getElementById('grid');
 CHAPTERS.forEach(ch => {
