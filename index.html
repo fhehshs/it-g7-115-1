@@ -242,9 +242,10 @@ CHAPTERS.forEach(ch => {
   grid.appendChild(card);
 });
 
-// 運算思維挑戰解答版：bebras/answers.html 上傳後才顯示按鈕
-fetch('bebras/answers.html', { method: 'HEAD' })
-  .then(r => { if (r.ok) document.getElementById('bebras-answers').style.display = ''; })
+// 運算思維挑戰解答版：bebras-settings.json 的 "g7" 設成 true 才顯示按鈕（可直接在 GitHub 網頁上修改）
+fetch('bebras-settings.json', { cache: 'no-store' })
+  .then(r => r.json())
+  .then(s => { if (s.g7 === true) document.getElementById('bebras-answers').style.display = ''; })
   .catch(() => {});
 </script>
 </body>

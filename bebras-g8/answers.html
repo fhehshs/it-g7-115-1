@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>運算思維挑戰 題目版</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --card: #fffdf8; --ink: #2b2a27; --muted: #77736b;
+    --line: #ddd6c8; --accent: #2f6f8f; --easy: #3d7ab8; --mid: #3f9150; --hard: #c2504b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1d1c1a; --card: #262522; --ink: #ece8df; --muted: #a39e93; --line: #3a3833; --accent: #7fb6d3; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  h1 { font-size: 18px; margin: 0; }
+  .tag { font-size: 13px; color: var(--muted); }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  nav button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px;
+    padding: 6px 10px; font-size: 15px; cursor: pointer; font-family: inherit; }
+  nav button[aria-current="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  nav button .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .title { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; flex-wrap: wrap; }
+  .title h2 { margin: 0; font-size: 24px; }
+  .lv { color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 14px; }
+  .ans { font-size: 20px; font-weight: 700; color: var(--hard); }
+  img.page { width: 100%; display: block; background: #fff; border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.15); margin-bottom: 16px; }
+  .sec { font-size: 15px; color: var(--muted); margin: 20px 0 8px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .pager { display: flex; justify-content: space-between; margin: 8px 0 32px; }
+  .pager button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); cursor: pointer; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 0 16px 24px; }
+  footer .switch[hidden] { display: none; }
+  footer .switch { display: inline-block; font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="h1">運算思維挑戰</h1>
+  <span class="tag">Bebras Cadet 組 15 題（2023 完整一屆）· ← → 換題</span>
+  <nav id="nav"></nav>
+</header>
+<main id="main"></main>
+<footer><a class="switch" id="switch" hidden></a><br>題目與解析取自「2023 國際運算思維挑戰賽 任務解析」，由 2023 運算思維推動計畫製作，採 CC 姓名標示-非商業性-禁止改作 3.0 台灣授權。僅供課堂教學使用。</footer>
+<script>
+const SHOW_ANSWERS = true;
+const LV = { 易: 'var(--easy)', 中: 'var(--mid)', 難: 'var(--hard)' };
+const TASKS = [
+  { name: '控制桿', lv: '易', ans: 'C', answers: 1, year: 2023 },
+  { name: '海狸壓縮法', lv: '易', ans: 'D', answers: 1, year: 2023 },
+  { name: '火車卸貨', lv: '易', ans: 'D', answers: 2, year: 2023 },
+  { name: '動物園一日遊', lv: '易', ans: '5', answers: 3, year: 2023 },
+  { name: '海狸球賽', lv: '易', ans: 'D', answers: 1, year: 2023 },
+  { name: '灑水器', lv: '中', ans: '25', answers: 1, year: 2023 },
+  { name: '密封信件', lv: '中', ans: 'D', answers: 1, year: 2023 },
+  { name: '奇幻城堡', lv: '中', ans: '3', answers: 1, year: 2023 },
+  { name: '排隊', lv: '中', ans: 'A', answers: 4, year: 2023 },
+  { name: '聖誕老人的幫手', lv: '中', ans: 'B', answers: 1, year: 2023 },
+  { name: '爬山訓練', lv: '難', ans: '1', answers: 2, year: 2023 },
+  { name: '岩石上的派對', lv: '難', ans: '6', answers: 1, year: 2023 },
+  { name: '尋找加密金鑰', lv: '難', ans: 'C', answers: 2, year: 2023 },
+  { name: '棋盤遊戲', lv: '難', ans: '16', answers: 1, year: 2023 },
+  { name: '字詞變換', lv: '難', ans: 'C', answers: 3, year: 2023 },
+];
+const pad = n => String(n).padStart(2, '0');
+const nav = document.getElementById('nav'), main = document.getElementById('main');
+if (SHOW_ANSWERS) { document.getElementById('h1').textContent = '運算思維挑戰 · 解答版'; document.title = '運算思維挑戰 解答版'; }
+
+// 頁尾的「解答版／題目版」切換連結
+const ANSWER_PAGE = 'answers.html', QUESTION_PAGE = 'index.html';
+// 網站版會把這兩個值換成設定檔：bebras-settings.json 裡設成 true 才公布解答（可直接在 GitHub 網頁上修改）
+const SETTINGS_URL = '../bebras-settings.json', SETTINGS_KEY = 'g8';
+const released = SETTINGS_URL
+  ? fetch(SETTINGS_URL, { cache: 'no-store' }).then(r => r.json()).then(s => s[SETTINGS_KEY] === true).catch(() => false)
+  : Promise.resolve(true);
+const sw = document.getElementById('switch');
+function showSwitch() {
+  sw.href = SHOW_ANSWERS ? QUESTION_PAGE : ANSWER_PAGE;
+  sw.textContent = SHOW_ANSWERS ? '← 回題目版' : '✔ 看解答版（題目解析與資訊科學概念）';
+  sw.hidden = false;
+}
+if (SHOW_ANSWERS) showSwitch();
+else released.then(ok => { if (ok) showSwitch(); });
+
+TASKS.forEach((t, i) => {
+  const b = document.createElement('button');
+  b.innerHTML = `<span class="dot" style="background:${LV[t.lv]}"></span>${i + 1}`;
+  b.title = t.name;
+  b.onclick = () => show(i);
+  nav.appendChild(b);
+});
+
+let cur = 0;
+function show(i) {
+  cur = (i + TASKS.length) % TASKS.length;
+  const t = TASKS[cur], n = pad(cur + 1);
+  [...nav.children].forEach((b, k) => b.setAttribute('aria-current', k === cur));
+  let html = `<div class="title"><h2>第 ${cur + 1} 題　${t.name}</h2>
+    <span class="lv" style="background:${LV[t.lv]}">${t.lv}</span>
+    <span class="tag">${t.year} 年</span>
+    ${SHOW_ANSWERS ? `<span class="ans">正確答案：${t.ans}</span>` : ''}</div>
+    <img class="page" src="img/q${n}.jpg" alt="第 ${cur + 1} 題 ${t.name} 題目">`;
+  if (SHOW_ANSWERS) {
+    html += `<div class="sec">解析</div>`;
+    for (let k = 1; k <= t.answers; k++)
+      html += `<img class="page" src="img/a${n}_${k}.jpg" alt="${t.name} 解析第 ${k} 頁">`;
+  }
+  html += `<div class="pager"><button onclick="show(cur-1)">← 上一題</button><button onclick="show(cur+1)">下一題 →</button></div>`;
+  main.innerHTML = html;
+  try { history.replaceState(null, '', '#' + (cur + 1)); } catch (e) {}
+  window.scrollTo(0, 0);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') show(cur + 1);
+  if (e.key === 'ArrowLeft') show(cur - 1);
+});
+const start = (parseInt(location.hash.slice(1)) || 1) - 1;
+if (!SHOW_ANSWERS) show(start);
+else released.then(ok => {
+  if (ok) return show(start);
+  nav.hidden = true;
+  main.innerHTML = '<p class="sec" style="text-align:center;font-size:18px">解答還沒公布，請先回題目版作答。</p>';
+});
+</script>
+</body>
+</html>

@@ -72,16 +72,21 @@ const pad = n => String(n).padStart(2, '0');
 const nav = document.getElementById('nav'), main = document.getElementById('main');
 if (SHOW_ANSWERS) { document.getElementById('h1').textContent = '運算思維挑戰 · 解答版'; document.title = '運算思維挑戰 解答版'; }
 
-// 頁尾的「解答版／題目版」切換連結。解答版還沒公布（檔案不存在）時，題目版不顯示連結
+// 頁尾的「解答版／題目版」切換連結
 const ANSWER_PAGE = 'answers.html', QUESTION_PAGE = 'index.html';
+// 網站版會把這兩個值換成設定檔：bebras-settings.json 裡設成 true 才公布解答（可直接在 GitHub 網頁上修改）
+const SETTINGS_URL = '../bebras-settings.json', SETTINGS_KEY = 'g8';
+const released = SETTINGS_URL
+  ? fetch(SETTINGS_URL, { cache: 'no-store' }).then(r => r.json()).then(s => s[SETTINGS_KEY] === true).catch(() => false)
+  : Promise.resolve(true);
 const sw = document.getElementById('switch');
 function showSwitch() {
   sw.href = SHOW_ANSWERS ? QUESTION_PAGE : ANSWER_PAGE;
   sw.textContent = SHOW_ANSWERS ? '← 回題目版' : '✔ 看解答版（題目解析與資訊科學概念）';
   sw.hidden = false;
 }
-if (SHOW_ANSWERS || location.protocol === 'file:') showSwitch();
-else fetch(ANSWER_PAGE, { method: 'HEAD' }).then(r => { if (r.ok) showSwitch(); }).catch(() => {});
+if (SHOW_ANSWERS) showSwitch();
+else released.then(ok => { if (ok) showSwitch(); });
 
 TASKS.forEach((t, i) => {
   const b = document.createElement('button');
@@ -115,7 +120,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') show(cur + 1);
   if (e.key === 'ArrowLeft') show(cur - 1);
 });
-show((parseInt(location.hash.slice(1)) || 1) - 1);
+const start = (parseInt(location.hash.slice(1)) || 1) - 1;
+if (!SHOW_ANSWERS) show(start);
+else released.then(ok => {
+  if (ok) return show(start);
+  nav.hidden = true;
+  main.innerHTML = '<p class="sec" style="text-align:center;font-size:18px">解答還沒公布，請先回題目版作答。</p>';
+});
 </script>
 </body>
 </html>
